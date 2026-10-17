@@ -61,6 +61,7 @@
 
   .top { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin:4px 0 6px; }
   .top h1 { margin:0; }
+  button.chip.exit { background:rgba(255,92,122,.12); color:#FFB3C1; border-color:rgba(255,92,122,.55); }
   #callView, #checkView { margin-top:16px; }
   h1.brand { display:flex; flex-direction:column; gap:0; line-height:1; }
   h1.brand .lockup { display:flex; align-items:center; gap:0; }
@@ -115,6 +116,7 @@
   <header class="top">
     <h1 class="brand"><span class="lockup"><img src="brand/flask.svg" alt="" width="32" height="48"><img src="brand/wordmark.svg" alt="GabLab" width="150" height="48"></span><span class="muted">48 kHz voice recorder</span></h1>
     <button id="installBtn" class="chip hidden" title="Install as an app">⤓ Install</button>
+    <button id="exitBtn" class="chip exit hidden" title="Close GabLab">⏻ Exit</button>
   </header>
   <div id="globalBanner" class="banner hidden"></div>
 

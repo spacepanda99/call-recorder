@@ -1,5 +1,5 @@
 // Lets the page install as an app and open without signal. Network first, so updates show up right away.
-const CACHE = "gablab-v4";
+const CACHE = "gablab-v5";
 const SHELL = ["./", "index.html", "app.js", "rec-worker.js", "peerjs.min.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "brand/wordmark.svg", "brand/flask.svg"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => {

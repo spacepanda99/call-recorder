@@ -847,8 +847,26 @@ preview();
 let installEvt = null;
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; });
 window.addEventListener("appinstalled", () => { show("installBtn", false); log("Installed as an app"); });
-const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
-show("installBtn", !standalone);
+// Installed app: swap the Install chip for an Exit button that ends the call, saves any recording,
+// releases the mic and closes the app window.
+const standaloneMq = matchMedia("(display-mode: standalone)");
+const isStandalone = () => standaloneMq.matches || !!navigator.standalone;
+function applyMode() { show("installBtn", !isStandalone()); show("exitBtn", isStandalone()); }
+standaloneMq.addEventListener ? standaloneMq.addEventListener("change", applyMode) : standaloneMq.addListener(applyMode);
+applyMode();
+async function exitApp() {
+  if (recording && !confirm("You are recording. Stop, save the file, and exit?")) return;
+  $("exitBtn").disabled = true;
+  const saved = recording;
+  if (inCall) await hangUp();
+  else if (recording) await stopRecording(true);
+  checkSink = null; releaseMic();
+  try { wakeLock && wakeLock.release(); } catch (e) {}
+  if (saved) await new Promise((r) => setTimeout(r, 1500));    // let the saved file finish downloading
+  window.close();
+  setTimeout(() => { $("exitBtn").disabled = false; banner("Everything is stopped and saved. If the app didn't close, swipe it away from your recent apps."); }, 500);
+}
+$("exitBtn").onclick = exitApp;
 $("installBtn").onclick = async () => {
   if (!installEvt) { alert("To install: open Chrome's ⋮ menu and tap \"Add to Home screen\", then Install."); return; }
   installEvt.prompt(); await installEvt.userChoice; installEvt = null;
