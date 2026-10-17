@@ -90,6 +90,11 @@
       </div>
     </div>
 
+    <div class="card">
+      <h2>Storage</h2>
+      <div id="spaceCard" class="muted">Checking free space…</div>
+    </div>
+
     <div class="card" id="histCard">
       <div class="row"><h2 style="margin:0">Recordings</h2><span class="muted" id="storageInfo"></span></div>
       <div id="histList" class="muted">No recordings yet.</div>
@@ -176,6 +181,7 @@
       <div class="scale"><span style="left:0%;transform:none">−60</span><span style="left:50%">−30</span><span style="left:80%">−12</span><span style="left:90%">−6</span><span style="left:100%;transform:translateX(-100%)">0</span></div>
       <div class="timer" id="timer">00:00:00</div>
       <div class="muted center" id="recState">Not recording</div>
+      <div class="muted center" id="spaceInfo"></div>
       <div class="coach" id="coach">Talk normally to get distance advice. Your loud words should reach the green zone.</div>
       <button id="recBtn" disabled>Start recording</button>
       <button id="stopBtn" class="danger hidden">Stop &amp; save</button>

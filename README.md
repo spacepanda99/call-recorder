@@ -26,6 +26,12 @@ Try **Record solo** to see the recording screen without a friend.
 - **Dropped calls:** if the call drops, recording keeps going and the joining phone reconnects by itself. If the friend's phone stopped recording, it restarts it.
 - **Other:** mute (affects the live call only, not your recording), call quality (delay and packet loss), screen kept awake, low-battery warning.
 
+## Disk space
+- A recording takes **346 MB per hour** (5.8 MB per minute): 48,000 samples a second × 2 bytes, mono.
+- The Storage card on the home screen shows roughly how much space is free and how many hours of recording that covers. During a recording, a "Space left" line updates every 15 s, and the friend card shows your friend's space left too.
+- If less than 30 min of space is left, the app asks before it starts recording. It warns when about 10 min are left, and it stops and saves when space runs out (about 4 min left), so the file is never cut off half-written.
+- Downloading or sharing makes a second copy. After uploading, delete the recording in the app to free space.
+
 ## Screen off and installing as an app
 - **Timer:** the big HH:MM:SS clock on the call screen counts recorded time, and the friend card shows the other phone's timer.
 - **Screen off:** audio goes from the audio thread straight to the disk writer, so a slow or paused page doesn't drop audio. (Tested by freezing the page for 4 s: no audio was lost.) Android Chrome normally keeps a live call and mic running with the screen off. Android can still pause Chrome to save battery, though, and that hasn't been tried on your phones. Do a 2-minute screen-off test first. **Keep the screen on** (in settings) is on by default and is the safest choice; turn the brightness down. Set Chrome's battery use to Unrestricted (Settings › Apps › Chrome › Battery).

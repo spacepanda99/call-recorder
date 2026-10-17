@@ -16,7 +16,10 @@ const pct = (db) => Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
 const p2 = (n) => String(n).padStart(2, "0");
 const hms = (s) => { s = Math.floor(s); return p2(Math.floor(s / 3600)) + ":" + p2(Math.floor(s / 60) % 60) + ":" + p2(s % 60); };
 const ms = (s) => { s = Math.floor(s); return Math.floor(s / 60) + ":" + p2(s % 60); };
-const mb = (b) => (b / 1048576).toFixed(1) + " MB";
+const mb = (b) => (b / 1e6).toFixed(1) + " MB";     // decimal MB/GB, same as Android's storage screen
+const gb = (b) => (b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : Math.round(b / 1e6) + " MB");
+const BYTES_PER_HOUR = 48000 * 2 * 3600;                // 48 kHz x 16-bit mono = 345.6 MB per hour
+const hm = (bytes) => { const m = Math.floor(bytes / (BYTES_PER_HOUR / 60)); return m >= 60 ? Math.floor(m / 60) + " h " + (m % 60) + " min" : m + " min"; };
 const cmText = (cm) => cm + " cm (" + Math.round(cm / 2.54) + " in)";
 const show = (id, on) => $(id).classList.toggle("hidden", !on);
 function log(m) { const el = $("log"); el.textContent = new Date().toLocaleTimeString() + "  " + m + "\n" + el.textContent; }
@@ -156,14 +159,52 @@ async function renderHistory() {
         "</div>";
     }).join("");
   }
-  try {
-    if (navigator.storage && navigator.storage.estimate) {
-      const est = await navigator.storage.estimate();
-      const freeH = Math.max(0, (est.quota - est.usage) / (RATE * 2 * 3600));
-      $("storageInfo").textContent = mb(est.usage || 0) + " used · room for ~" + (freeH > 99 ? "99+" : freeH.toFixed(0)) + " h";
-    }
-  } catch (e) {}
+  renderStorage();
 }
+
+// ---------- disk space ----------
+// navigator.storage.estimate() gives the space Chrome lets this page use. That follows the phone's
+// free space but isn't exactly the same number, so everything here says "about".
+async function freeSpace() {
+  try {
+    if (!navigator.storage || !navigator.storage.estimate) return null;
+    const est = await navigator.storage.estimate();
+    return { free: Math.max(0, (est.quota || 0) - (est.usage || 0)), usage: est.usage || 0 };
+  } catch (e) { return null; }
+}
+async function renderStorage() {
+  const sp = await freeSpace();
+  const used = history.reduce((n, e) => n + (e.bytes || 0), 0);
+  $("storageInfo").textContent = history.length ? gb(used) + " in this app" : "";
+  if (!sp) { $("spaceCard").innerHTML = "This browser can't report free space. Each hour of recording takes about 346 MB."; return; }
+  const low = sp.free < 2 * BYTES_PER_HOUR;
+  $("spaceCard").innerHTML =
+    '<table class="result" style="margin-top:0">' +
+    "<tr><td>Free for recording</td><td><b>about " + gb(sp.free) + "</b> " + (low ? '<span class="pill bad">low</span>' : '<span class="pill ok">OK</span>') + "</td></tr>" +
+    "<tr><td>That's enough for</td><td><b>about " + hm(sp.free) + "</b> of recording</td></tr>" +
+    "<tr><td>Each recording uses</td><td>346 MB per hour (5.8 MB per minute)</td></tr>" +
+    "<tr><td>Saved in this app now</td><td>" + gb(used) + " (" + history.length + " file" + (history.length === 1 ? "" : "s") + ")</td></tr></table>" +
+    '<div class="muted" style="margin-top:6px">Downloading or sharing a file makes a second copy, so the phone holds it twice. After you upload a recording to Boomie, delete it here to get the space back.' +
+    (low ? " <b>Free up space before a long call</b> (Settings › Storage)." : "") + "</div>";
+}
+let spaceLeft = null;
+async function spaceTick() {
+  if (!recording) { $("spaceInfo").textContent = ""; return; }
+  const sp = await freeSpace();
+  if (!sp) return;
+  spaceLeft = sp.free;
+  const el = $("spaceInfo");
+  el.textContent = "Space left: about " + hm(sp.free) + " (" + gb(sp.free) + ")";
+  el.style.color = sp.free < BYTES_PER_HOUR / 6 ? "var(--red)" : "";
+  if (sp.free < 25e6) {                                 // under ~4 min: stop cleanly instead of failing mid-write
+    banner("Recording stopped because the phone is almost out of space. The file was saved.");
+    log("Stopping: storage almost full");
+    stopRecording(false);
+  } else if (sp.free < BYTES_PER_HOUR / 6) {
+    banner("Phone storage is almost full: about " + hm(sp.free) + " of recording left.");
+  }
+}
+setInterval(spaceTick, 15000);
 $("histList").addEventListener("click", async (ev) => {
   const b = ev.target.closest("button[data-a]"); if (!b) return;
   const row = b.closest(".hist"), e = history[+row.dataset.i]; if (!e) return;
@@ -416,6 +457,8 @@ $("checkDoneBtn").onclick = () => { checkSink = null; show("checkView", false); 
 // ---------- recording ----------
 async function startRecording() {
   if (recording) return;
+  const sp = await freeSpace();
+  if (sp && sp.free < 25e6) { banner("Can't record: the phone is almost out of space (" + gb(sp.free) + " free). Delete old recordings or free up space."); log("Not recording: storage full"); return; }
   const file = "rec-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + ".wav";
   recEntry = { file, date: new Date().toISOString(), role, me: S.name, friend: friend.name, room: roomCode, status: "recording", markers: [], store: opfs ? "opfs" : "memory" };
   recEntry.exportName = buildName(recEntry);
@@ -424,6 +467,7 @@ async function startRecording() {
   history.unshift(recEntry); saveHistory();
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
   pendingLen = 0; memChunks = []; recFrames = 0; recPeak = 0; recording = true;
+  setTimeout(spaceTick, 500);
   direct = recEntry.store === "opfs";
   if (direct) tap.port.postMessage({ cmd: "start" });
   $("recBtn").classList.add("hidden"); show("stopBtn", true); $("markBtn").disabled = false; $("callCheckBtn").disabled = true;
@@ -487,8 +531,13 @@ function countdownThen(n, fn) {
   tick();
 }
 let countingDown = false;
-function beginRecording(fromFriend, cd) {
+async function beginRecording(fromFriend, cd) {
   if (recording || countingDown) return;
+  if (!fromFriend) {
+    const sp = await freeSpace();
+    if (sp && sp.free < 25e6) { banner("Can't record: the phone is almost out of space (" + gb(sp.free) + " free)."); return; }
+    if (sp && sp.free < BYTES_PER_HOUR / 2 && !confirm("Only about " + hm(sp.free) + " of recording space is left on this phone. Record anyway?")) return;
+  }
   countingDown = true;
   if (!fromFriend) send({ t: "rec", cd: 3 });
   countdownThen(cd, () => { countingDown = false; startRecording(); });
@@ -582,7 +631,7 @@ function lost() {
   }, 5000);
 }
 function onHeartbeat(m) {
-  friend.name = clean(m.name) ? String(m.name).slice(0, 24) : friend.name; friend.rec = !!m.rec; friend.secs = m.secs || 0; friend.db = m.db; friend.cls = m.cls || ""; friend.tip = m.tip || "";
+  friend.name = clean(m.name) ? String(m.name).slice(0, 24) : friend.name; friend.rec = !!m.rec; friend.secs = m.secs || 0; friend.db = m.db; friend.cls = m.cls || ""; friend.tip = m.tip || ""; friend.space = m.space;
   friend.seen = Date.now();
   if (recEntry && !recEntry.friend && friend.name) { recEntry.friend = friend.name; saveHistory(); }
   if (resync) { resync = false; if (recording && !friend.rec) { log("Friend's phone wasn't recording after the reconnect; starting it"); send({ t: "rec", cd: 0 }); } }
@@ -590,7 +639,7 @@ function onHeartbeat(m) {
 async function sendHeartbeat() {
   if (!conn || !conn.open) return;
   const last = wins.slice(-20).reduce((n, w) => Math.max(n, w.p), 0);
-  send({ t: "hb", name: S.name, rec: recording, secs: recFrames / RATE, db: +dbOf(last).toFixed(0), cls: lastTip.cls, tip: lastTip.text });
+  send({ t: "hb", name: S.name, rec: recording, secs: recFrames / RATE, db: +dbOf(last).toFixed(0), cls: lastTip.cls, tip: lastTip.text, space: spaceLeft });
 }
 async function updateQuality() {
   const pc = call && call.peerConnection;
@@ -678,6 +727,7 @@ function uiTick() {
     else {
       fr.textContent = friend.rec ? "● recording " + hms(friend.secs) : "not recording"; fr.className = "pill " + (friend.rec ? "on" : recording ? "bad" : "ok");
       $("friendInfo").textContent = "Level " + (friend.db > -90 ? friend.db + " dB" : "silent") + (friend.tip ? " · " + friend.tip : "") +
+        (friend.rec && friend.space != null ? " · their space left about " + hm(friend.space) : "") +
         (recording && !friend.rec ? " · Their phone is NOT recording!" : "");
     }
   }
