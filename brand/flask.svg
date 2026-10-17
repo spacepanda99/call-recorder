@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="118 20 290 432" role="img" aria-label="GabLab">
+  <defs>
+    <linearGradient id="f-grad" x1="120" y1="420" x2="400" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34F5C5"/>
+      <stop offset="0.55" stop-color="#7B61FF"/>
+      <stop offset="1" stop-color="#FF4FD8"/>
+    </linearGradient>
+    <clipPath id="f-flask"><path d="M226 120 V214 L146 352 Q132 378 160 384 H352 Q380 378 366 352 L286 214 V120 Z"/></clipPath>
+  </defs>
+  <!-- liquid with a sound wave on top -->
+  <g clip-path="url(#f-flask)">
+    <path d="M120 300 q22 -34 44 0 t44 0 t44 0 t44 0 t44 0 t44 0 V400 H120 Z" fill="url(#f-grad)" opacity="0.9"/>
+  </g>
+  <!-- flask outline that doubles as a speech bubble (tail bottom-left) -->
+  <path d="M212 120 H300 M226 120 V214 L146 352 Q132 378 160 384 H352 Q380 378 366 352 L286 214 V120 M178 384 L150 436 L226 384"
+        fill="none" stroke="url(#f-grad)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- bubbles -->
+  <g fill="none" stroke="#FF4FD8" stroke-width="10">
+    <circle cx="256" cy="176" r="12"/>
+    <circle cx="300" cy="78" r="16"/>
+    <circle cx="338" cy="40" r="9"/>
+  </g>
+</svg>

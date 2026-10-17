@@ -63,8 +63,10 @@
   .top h1 { margin:0; }
   #callView, #checkView { margin-top:16px; }
   h1.brand { display:flex; flex-direction:column; gap:0; line-height:1; }
-  h1.brand img { display:block; height:48px; width:auto; margin-left:-6px; }
-  h1.brand span { font-size:12px; font-weight:500; letter-spacing:.04em; margin-top:2px; }
+  h1.brand .lockup { display:flex; align-items:center; gap:4px; }
+  h1.brand img { display:block; height:48px; width:auto; }
+  h1.brand img + img { margin-left:-4px; }
+  h1.brand > span.muted { font-size:12px; font-weight:500; letter-spacing:.04em; margin-top:2px; }
   .eyebrow { color:#B4A8FF !important; }
   .card { box-shadow:0 1px 0 rgba(255,255,255,.03) inset; }
   .code { background:linear-gradient(90deg, var(--accent), var(--violet), var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
@@ -100,7 +102,7 @@
 <body>
 <main>
   <header class="top">
-    <h1 class="brand"><img src="brand/wordmark.svg" alt="GabLab" width="150" height="48"><span class="muted">48 kHz voice recorder</span></h1>
+    <h1 class="brand"><span class="lockup"><img src="brand/flask.svg" alt="" width="32" height="48"><img src="brand/wordmark.svg" alt="GabLab" width="150" height="48"></span><span class="muted">48 kHz voice recorder</span></h1>
     <button id="installBtn" class="chip hidden" title="Install as an app">⤓ Install</button>
   </header>
   <div id="globalBanner" class="banner hidden"></div>
