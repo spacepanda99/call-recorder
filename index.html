@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GabLab</title>
+<meta name="app-version" content="1.8.0">
 <meta name="theme-color" content="#0E1022">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -109,6 +110,7 @@
   .card.list summary::after { content:"›"; color:var(--muted); font-size:20px; line-height:1; transition:transform .2s; }
   .card.list details[open] summary::after { transform:rotate(90deg); }
   .dbody { padding:0 0 16px; } .dbody p { margin:0 0 10px; }
+  .ver { text-align:center; color:var(--muted); font-size:12px; opacity:.7; margin:28px 0 4px; letter-spacing:.04em; }
 </style>
 </head>
 <body>
@@ -264,10 +266,11 @@
     <button id="hangupBtn" class="secondary">Hang up</button>
     <div class="card" style="margin-top:12px"><details><summary class="muted">Details</summary><div id="log"></div></details></div>
   </section>
+  <footer id="ver" class="ver">GabLab v1.8.0</footer>
 </main>
 <div id="countdown" class="countdown hidden"></div>
 <audio id="remoteAudio" autoplay playsinline></audio>
 <script src="peerjs.min.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=1.8.0"></script>
 </body>
 </html>

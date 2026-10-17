@@ -1,4 +1,15 @@
 "use strict";
+const VERSION = "1.8.0";
+// If the page and this script come from different releases (a phone cached one of them),
+// reload once to pull matching files.
+(() => {
+  const pageV = (document.querySelector('meta[name="app-version"]') || {}).content;
+  try {
+    if (pageV && pageV !== VERSION && sessionStorage.getItem("gablab-reloaded") !== VERSION) {
+      sessionStorage.setItem("gablab-reloaded", VERSION); location.reload(); return;
+    }
+  } catch (e) {}
+})();
 // GabLab: a live WebRTC call between two phones, while each phone records its own raw mic
 // to a 48 kHz / 16-bit mono WAV on its own disk. See README.md.
 
@@ -48,7 +59,7 @@ function wcall(msg) {
 }
 async function initWorker() {
   try {
-    worker = new Worker("rec-worker.js");
+    worker = new Worker("rec-worker.js?v=" + VERSION);
     worker.onmessage = (e) => {
       const d = e.data, w = wwait[d.id];
       if (!w) { if (d.op === "error") log("Disk error: " + d.error); return; }
@@ -871,7 +882,7 @@ $("installBtn").onclick = async () => {
   if (!installEvt) { alert("To install: open Chrome's ⋮ menu and tap \"Add to Home screen\", then Install."); return; }
   installEvt.prompt(); await installEvt.userChoice; installEvt = null;
 };
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
 
 window.__app = { history: () => history, getEntryFile };   // used by the automated test
 
