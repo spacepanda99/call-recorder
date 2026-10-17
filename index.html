@@ -57,32 +57,64 @@
   .readme { font-size:18px; background:var(--field); padding:12px; border-radius:10px; margin-top:8px; }
   details summary { cursor:pointer; font-weight:600; }
   ol, ul { padding-left:20px; margin:6px 0; } li { margin:4px 0; }
+
+  .top { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin:4px 0 6px; }
+  .top h1 { margin:0; }
+  button.chip { width:auto; margin:0; padding:6px 12px; font-size:13px; border-radius:99px; background:transparent; color:var(--accent); border:1px solid #2f6b4a; }
+  .eyebrow { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:28px 4px 8px; }
+  #homeView > .eyebrow:first-child { margin-top:14px; }
+  .or { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; margin:18px 0 10px; }
+  .or::before, .or::after { content:""; flex:1; height:1px; background:var(--line); }
+  .tips { list-style:none; padding:0; margin:0; }
+  .tips li { display:flex; gap:12px; align-items:flex-start; margin:0 0 12px; font-size:14px; color:var(--muted); }
+  .tips li span { font-size:18px; line-height:1.2; }
+  .tips b { color:var(--text); font-weight:600; }
+  .divider { height:1px; background:var(--line); margin:14px -16px; }
+  .space-top { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:baseline; gap:4px 12px; color:var(--muted); font-size:14px; }
+  .space-top b { font-size:18px; color:var(--text); }
+  .usage { height:6px; border-radius:3px; background:var(--field); overflow:hidden; margin:10px 0 8px; display:flex; }
+  .usage i { display:block; height:100%; }
+  .space-note { font-size:12px; color:var(--muted); line-height:1.4; }
+  .hist .meta { font-size:13px; color:var(--muted); margin-top:2px; }
+  .acts { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .acts button { width:auto; margin:0; padding:6px 12px; font-size:13px; font-weight:600; border-radius:99px; background:#262c34; color:var(--text); }
+  .acts button.del { background:transparent; color:#ff8a8a; padding-left:6px; padding-right:6px; margin-left:auto; }
+  .card.list { padding:0 16px; }
+  .card.list details { border-top:1px solid var(--line); }
+  .card.list details:first-child { border-top:0; }
+  .card.list summary { list-style:none; padding:16px 0; display:flex; justify-content:space-between; align-items:center; font-weight:600; }
+  .card.list summary::-webkit-details-marker { display:none; }
+  .card.list summary::after { content:"›"; color:var(--muted); font-size:20px; line-height:1; transition:transform .2s; }
+  .card.list details[open] summary::after { transform:rotate(90deg); }
+  .dbody { padding:0 0 16px; } .dbody p { margin:0 0 10px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Call Recorder <span class="muted">48 kHz WAV</span></h1>
+  <header class="top">
+    <h1>Call Recorder <span class="muted">48 kHz WAV</span></h1>
+    <button id="installBtn" class="chip hidden" title="Install as an app">⤓ Install</button>
+  </header>
   <div id="globalBanner" class="banner hidden"></div>
 
   <!-- HOME -->
   <section id="homeView">
+    <div class="eyebrow">Call</div>
     <div class="card">
       <label for="myName" style="margin-top:0">Your name (goes in the file name)</label>
       <input id="myName" maxlength="24" placeholder="e.g. Mike" autocomplete="given-name">
       <button id="newRoomBtn">Start a new call</button>
-      <label for="codeInput">Or join your friend's call</label>
-      <input id="codeInput" class="codein" maxlength="4" placeholder="CODE" autocomplete="off">
+      <div class="or"><span>or join a friend</span></div>
+      <input id="codeInput" class="codein" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Friend's call code">
       <button id="joinBtn" class="secondary">Join call</button>
-      <button id="installBtn" class="secondary hidden">Install as an app</button>
     </div>
 
+    <div class="eyebrow">Get ready</div>
     <div class="card">
-      <h2>Before you record</h2>
-      <ul class="muted">
-        <li>Wear <b>wired</b> earphones so the other voice doesn't leak into your mic. Bluetooth earbud mics are low quality; the mic check warns you if one is in use.</li>
-        <li>Hold or prop the phone <b>15–20 cm (6–8 in) from your mouth</b>, a little to the side, so you talk across its bottom mic, not straight into it (that stops "p" and "b" pops).</li>
-        <li>Pick a quiet, soft room (sofa, curtains, carpet). Turn off fans and AC. Keep the phone still and don't let fingers rub the bottom edge.</li>
-        <li>Run the mic check. It tells you the right distance for your voice.</li>
+      <ul class="tips">
+        <li><span>🎧</span><div>Wear <b>wired</b> earphones so the other voice doesn't leak into your mic. Bluetooth earbud mics are low quality.</div></li>
+        <li><span>📏</span><div>Hold the phone <b>15–20 cm (6–8 in) from your mouth</b>, a little to the side, so you talk across its bottom mic. That stops "p" and "b" pops.</div></li>
+        <li><span>🛋️</span><div>Pick a quiet, soft room. Turn off fans and AC. Keep the phone still.</div></li>
       </ul>
       <div class="btnrow">
         <button id="homeCheckBtn" class="secondary">Mic check</button>
@@ -90,19 +122,19 @@
       </div>
     </div>
 
+    <div class="eyebrow">Your recordings</div>
     <div class="card">
-      <h2>Storage</h2>
       <div id="spaceCard" class="muted">Checking free space…</div>
-    </div>
-
-    <div class="card" id="histCard">
-      <div class="row"><h2 style="margin:0">Recordings</h2><span class="muted" id="storageInfo"></span></div>
+      <div class="divider"></div>
       <div id="histList" class="muted">No recordings yet.</div>
+      <span id="storageInfo" class="hidden"></span>
     </div>
 
-    <div class="card">
+    <div class="eyebrow">More</div>
+    <div class="card list">
       <details>
         <summary>Saving, file names &amp; mic</summary>
+        <div class="dbody">
         <label for="nameTpl">File name pattern</label>
         <input id="nameTpl">
         <div class="muted">Tags: {date} {time} {me} {friend} {room} {role}<br>Example: <span id="namePreview"></span></div>
@@ -111,38 +143,40 @@
           <option value="download">Download a copy to my Downloads folder</option>
           <option value="folder">Save a copy to the folder I choose</option>
           <option value="share">Open the Share menu (Drive, Files, email…)</option>
-          <option value="keep">Only keep it in Recordings below</option>
+          <option value="keep">Only keep it in Your recordings</option>
         </select>
         <div id="folderBox" class="hidden">
           <button id="pickFolderBtn" class="secondary">Choose folder</button>
           <div class="muted" id="folderInfo">No folder chosen.</div>
         </div>
-        <div class="muted" id="noFolderNote" style="margin-top:6px">This browser can't pick folders from a web page (Android Chrome can't). To choose where each file goes, turn on Chrome ⋮ › Settings › Downloads › <b>Ask where to download files</b>, or pick <b>Share</b> above to save to Google Drive or a folder in the Files app. Every recording also stays in Recordings until you delete it.</div>
-        <label class="check" style="margin-top:12px"><input type="checkbox" id="keepAwake" checked>Keep the screen on during a call (safest). Turn off to let the screen sleep; see Help.</label>
-        <label class="check" style="margin-top:12px"><input type="checkbox" id="autoLevel" checked>Auto-level on save: raise a quiet recording so its loudest peak is −3 dB (never lowers, never clips)</label>
+        <div class="muted" id="noFolderNote" style="margin-top:6px">Android Chrome can't pick folders from a web page. To choose where each file goes, turn on Chrome ⋮ › Settings › Downloads › <b>Ask where to download files</b>, or pick <b>Share</b> to save to Google Drive or the Files app.</div>
+        <label class="check" style="margin-top:12px"><input type="checkbox" id="keepAwake" checked>Keep the screen on during a call (safest)</label>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="autoLevel" checked>Auto-level on save (raise quiet files to a −3 dB peak; never lowers or clips)</label>
         <label for="micSelect">Microphone</label>
         <select id="micSelect"><option value="">Phone default</option></select>
         <label for="distance">How far the phone usually is from your mouth</label>
-        <select id="distance">
-          <option value="10">10 cm (4 in)</option><option value="15">15 cm (6 in)</option>
-          <option value="20">20 cm (8 in)</option><option value="30">30 cm (12 in)</option><option value="45">45 cm (18 in)</option>
-        </select>
+        <select id="distance"></select>
+        </div>
       </details>
-    </div>
-
-    <div class="card">
       <details>
-        <summary>Help: how a call works</summary>
+        <summary>How a call works</summary>
+        <div class="dbody">
         <ol class="muted">
           <li>Both phones open this page in Chrome and type a name.</li>
-          <li>One taps <b>Start a new call</b>. A 4-letter code shows up. Text it to your friend.</li>
-          <li>The other types the code and taps <b>Join call</b>. Both screens say <b>Connected</b>, the friend card turns green, and you hear each other.</li>
-          <li>Either taps <b>Start recording</b>. Both phones count down 3-2-1 and record. The friend card shows that their phone is recording too.</li>
-          <li>Either taps <b>Stop &amp; save</b>. Each phone saves its own file and lists it under Recordings.</li>
+          <li>One taps <b>Start a new call</b> and texts the 4-letter code to the other.</li>
+          <li>The other types the code and taps <b>Join call</b>. Both screens say <b>Connected</b>.</li>
+          <li>Either taps <b>Start recording</b>. Both phones count down 3-2-1 and record.</li>
+          <li>Either taps <b>Stop &amp; save</b>. Each phone saves its own file.</li>
         </ol>
-        <div class="muted" style="margin-bottom:8px"><b>Screen off?</b> Recording keeps running on the audio thread and is written to storage every second, and Chrome normally keeps a live call and mic going with the screen off (you'll see Chrome's "using microphone" notice). Android can still pause Chrome to save battery, so do a 2-minute test with the screen off first. If the timer jumps or the file is short, leave <b>Keep the screen on</b> switched on and turn the brightness down. Don't swipe Chrome away, and keep it out of battery saver (Settings › Apps › Chrome › Battery › Unrestricted).</div>
-        <div class="muted" style="margin-bottom:8px"><b>Install as an app:</b> Chrome ⋮ › <b>Add to Home screen</b> › Install (or the Install button at the top). It opens full screen with its own icon and keeps your recordings. It runs on the same Chrome engine, so screen-off behaviour is the same.</div>
-        <div class="muted"><b>Won't connect?</b> Put both phones on Wi-Fi (some mobile networks block direct calls). Check the code and keep the first phone on the call screen. If the call drops, recording keeps going and the page reconnects by itself. Try <b>Record solo</b> to see the recording screen without a friend.</div>
+        </div>
+      </details>
+      <details>
+        <summary>Troubleshooting</summary>
+        <div class="dbody muted">
+        <p><b>Won't connect?</b> Put both phones on Wi-Fi (some mobile networks block direct calls). Check the code and keep the first phone on the call screen. If the call drops, recording keeps going and the page reconnects by itself.</p>
+        <p><b>Screen off?</b> Recording runs on the audio thread and is saved every second, and Chrome usually keeps a live call going with the screen off. Android can still pause Chrome to save battery, so do a 2-minute test first. If the file comes out short, keep <b>Keep the screen on</b> switched on and turn the brightness down. Set Chrome's battery use to Unrestricted (Settings › Apps › Chrome › Battery).</p>
+        <p><b>Install as an app:</b> tap <b>Install</b> at the top, or Chrome ⋮ › <b>Add to Home screen</b>. It opens full screen with its own icon. Screen-off behaviour stays the same.</p>
+        </div>
       </details>
     </div>
   </section>

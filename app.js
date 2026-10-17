@@ -17,7 +17,7 @@ const p2 = (n) => String(n).padStart(2, "0");
 const hms = (s) => { s = Math.floor(s); return p2(Math.floor(s / 3600)) + ":" + p2(Math.floor(s / 60) % 60) + ":" + p2(s % 60); };
 const ms = (s) => { s = Math.floor(s); return Math.floor(s / 60) + ":" + p2(s % 60); };
 const mb = (b) => (b / 1e6).toFixed(1) + " MB";     // decimal MB/GB, same as Android's storage screen
-const gb = (b) => (b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : Math.round(b / 1e6) + " MB");
+const gb = (b) => (b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : b < 1e7 ? (b / 1e6).toFixed(1) + " MB" : Math.round(b / 1e6) + " MB");
 const BYTES_PER_HOUR = 48000 * 2 * 3600;                // 48 kHz x 16-bit mono = 345.6 MB per hour
 const hm = (bytes) => { const m = Math.floor(bytes / (BYTES_PER_HOUR / 60)); return m >= 60 ? Math.floor(m / 60) + " h " + (m % 60) + " min" : m + " min"; };
 const cmText = (cm) => cm + " cm (" + Math.round(cm / 2.54) + " in)";
@@ -144,18 +144,20 @@ async function renderHistory() {
   if (!history.length) { list.textContent = "No recordings yet."; }
   else {
     list.innerHTML = history.map((e, i) => {
-      const when = new Date(e.date).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-      const bits = [when, e.status === "recording" ? "recording now" : hms(e.secs || 0), e.bytes ? mb(e.bytes) : "",
-        e.peakDb != null ? "peak " + e.peakDb.toFixed(1) + " dB" : "", e.gainDb > 0.1 ? "raised +" + e.gainDb.toFixed(1) + " dB" : "",
+      const when = new Date(e.date).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+      const bits = [when, e.status === "recording" ? "recording now" : hms(e.secs || 0).replace(/^00:/, ""), e.bytes ? gb(e.bytes) : "",
         e.friend ? "with " + esc(e.friend) : ""].filter(Boolean);
-      return '<div class="hist" data-i="' + i + '"><div class="name">' + esc(e.exportName || e.file) + "</div>" +
-        '<div class="muted">' + bits.join(" · ") + (e.status === "recovered" ? ' · <span class="pill">recovered</span>' : "") + "</div>" +
-        ((e.markers || []).length ? '<div class="muted">Marks: ' + e.markers.map(ms).join(", ") + "</div>" : "") +
+      const extra = [e.peakDb != null ? "peak " + e.peakDb.toFixed(1) + " dB" : "", e.gainDb > 0.1 ? "raised +" + e.gainDb.toFixed(1) + " dB" : "",
+        (e.markers || []).length ? "marks " + e.markers.map(ms).join(", ") : ""].filter(Boolean);
+      return '<div class="hist" data-i="' + i + '"><div class="name">' + esc(e.exportName || e.file) +
+        (e.status === "recovered" ? ' <span class="pill">recovered</span>' : "") + "</div>" +
+        '<div class="meta">' + bits.join(" · ") + "</div>" +
+        (extra.length ? '<div class="meta">' + extra.join(" · ") + "</div>" : "") +
         (e.status === "recording" ? "" :
-          '<div class="btnrow"><button class="small secondary" data-a="play">Play</button><button class="small secondary" data-a="download">Download</button>' +
-          (navigator.canShare ? '<button class="small secondary" data-a="share">Share</button>' : "") +
-          (canPickFolder ? '<button class="small secondary" data-a="folder">To folder</button>' : "") +
-          '<button class="small secondary" data-a="rename">Rename</button><button class="small danger" data-a="delete">Delete</button></div>') +
+          '<div class="acts"><button data-a="play">▶ Play</button><button data-a="download">Download</button>' +
+          (navigator.canShare ? '<button data-a="share">Share</button>' : "") +
+          (canPickFolder ? '<button data-a="folder">To folder</button>' : "") +
+          '<button data-a="rename">Rename</button><button class="del" data-a="delete">Delete</button></div>') +
         "</div>";
     }).join("");
   }
@@ -176,16 +178,16 @@ async function renderStorage() {
   const sp = await freeSpace();
   const used = history.reduce((n, e) => n + (e.bytes || 0), 0);
   $("storageInfo").textContent = history.length ? gb(used) + " in this app" : "";
-  if (!sp) { $("spaceCard").innerHTML = "This browser can't report free space. Each hour of recording takes about 346 MB."; return; }
+  if (!sp) { $("spaceCard").innerHTML = '<div class="space-note">Free space unknown in this browser. Recording uses 346 MB per hour.</div>'; return; }
   const low = sp.free < 2 * BYTES_PER_HOUR;
+  const total = sp.free + sp.usage, pctOf = (b) => Math.max(b > 0 ? 1.5 : 0, (100 * b) / (total || 1));
   $("spaceCard").innerHTML =
-    '<table class="result" style="margin-top:0">' +
-    "<tr><td>Free for recording</td><td><b>about " + gb(sp.free) + "</b> " + (low ? '<span class="pill bad">low</span>' : '<span class="pill ok">OK</span>') + "</td></tr>" +
-    "<tr><td>That's enough for</td><td><b>about " + hm(sp.free) + "</b> of recording</td></tr>" +
-    "<tr><td>Each recording uses</td><td>346 MB per hour (5.8 MB per minute)</td></tr>" +
-    "<tr><td>Saved in this app now</td><td>" + gb(used) + " (" + history.length + " file" + (history.length === 1 ? "" : "s") + ")</td></tr></table>" +
-    '<div class="muted" style="margin-top:6px">Downloading or sharing a file makes a second copy, so the phone holds it twice. After you upload a recording to Boomie, delete it here to get the space back.' +
-    (low ? " <b>Free up space before a long call</b> (Settings › Storage)." : "") + "</div>";
+    '<div class="space-top"><span><b>' + hm(sp.free) + "</b> of recording space left</span><span>" + gb(sp.free) + " free</span></div>" +
+    '<div class="usage" title="Used by this app vs. free"><i style="width:' + pctOf(used) + '%;background:var(--accent)"></i><i style="width:' +
+    pctOf(Math.max(0, sp.usage - used)) + '%;background:#3a4350"></i></div>' +
+    '<div class="space-note">' + (history.length ? gb(used) + " in " + history.length + " recording" + (history.length === 1 ? "" : "s") + " · " : "") +
+    "346 MB per hour" + (low ? ' · <span style="color:var(--warn)">Low on space. Free some up before a long call.</span>' : "") +
+    "<br>After uploading to Boomie, delete recordings here to get the space back. Downloads are a second copy.</div>";
 }
 let spaceLeft = null;
 async function spaceTick() {
@@ -815,9 +817,14 @@ preview();
 
 // ---------- install as an app ----------
 let installEvt = null;
-window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; show("installBtn", true); });
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; });
 window.addEventListener("appinstalled", () => { show("installBtn", false); log("Installed as an app"); });
-$("installBtn").onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; show("installBtn", false); };
+const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+show("installBtn", !standalone);
+$("installBtn").onclick = async () => {
+  if (!installEvt) { alert("To install: open Chrome's ⋮ menu and tap \"Add to Home screen\", then Install."); return; }
+  installEvt.prompt(); await installEvt.userChoice; installEvt = null;
+};
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
 window.__app = { history: () => history, getEntryFile };   // used by the automated test
