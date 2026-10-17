@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GabLab</title>
-<meta name="app-version" content="1.8.0">
+<meta name="app-version" content="1.8.1">
 <meta name="theme-color" content="#0E1022">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -111,6 +111,13 @@
   .card.list details[open] summary::after { transform:rotate(90deg); }
   .dbody { padding:0 0 16px; } .dbody p { margin:0 0 10px; }
   .ver { text-align:center; color:var(--muted); font-size:12px; opacity:.7; margin:28px 0 4px; letter-spacing:.04em; }
+  .where { border:1.5px solid rgba(123,97,255,.45); border-radius:26px; padding:14px 16px; margin:0 0 16px; background:linear-gradient(135deg, rgba(92,200,255,.07), rgba(255,122,217,.07)); }
+  .where-row { font-size:14px; color:var(--muted); }
+  .where-row + .where-row { border-top:1px dashed var(--line); margin-top:12px; padding-top:12px; }
+  .where-row b { color:var(--text); font-weight:600; }
+  .where-tag { display:inline-block; font-weight:700; font-size:14px; letter-spacing:.02em; margin-bottom:4px; }
+  .where-tag.apart { color:#5CC8FF; }
+  .where-tag.room { color:#FF7AD9; }
 </style>
 </head>
 <body>
@@ -134,9 +141,11 @@
 
     <div class="eyebrow">Get ready</div>
     <div class="card">
+      <div class="where">
+        <div class="where-row"><span class="where-tag apart">🎧 Apart</span><div>Wear <b>wired</b> earphones so the other voice doesn't leak into your mic. Bluetooth earbud mics are low quality.</div></div>
+        <div class="where-row"><span class="where-tag room">🪑 Same room</span><div>Skip the earphones. Tap <b>Speaker off</b> on both phones and sit at least 1–2 m (3–6 ft) apart. The speaker doesn't affect your mic or your recording.</div></div>
+      </div>
       <ul class="tips">
-        <li><span>🎧</span><div>Apart: wear <b>wired</b> earphones so the other voice doesn't leak into your mic. Bluetooth earbud mics are low quality.</div></li>
-        <li><span>🪑</span><div>Same room: skip the earphones. Tap <b>Speaker off</b> on both phones and sit at least 1–2 m (3–6 ft) apart. The speaker doesn't affect your mic or your recording.</div></li>
         <li><span>📏</span><div>Hold the phone <b>15–20 cm (6–8 in) from your mouth</b>, a little to the side, so you talk across its bottom mic. That stops "p" and "b" pops.</div></li>
         <li><span>🛋️</span><div>Pick a quiet, soft room. Turn off fans and AC. Keep the phone still.</div></li>
       </ul>
@@ -266,11 +275,11 @@
     <button id="hangupBtn" class="secondary">Hang up</button>
     <div class="card" style="margin-top:12px"><details><summary class="muted">Details</summary><div id="log"></div></details></div>
   </section>
-  <footer id="ver" class="ver">GabLab v1.8.0</footer>
+  <footer id="ver" class="ver">GabLab v1.8.1</footer>
 </main>
 <div id="countdown" class="countdown hidden"></div>
 <audio id="remoteAudio" autoplay playsinline></audio>
 <script src="peerjs.min.js"></script>
-<script src="app.js?v=1.8.0"></script>
+<script src="app.js?v=1.8.1"></script>
 </body>
 </html>

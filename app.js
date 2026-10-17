@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "1.8.0";
+const VERSION = "1.8.1";
 // If the page and this script come from different releases (a phone cached one of them),
 // reload once to pull matching files.
 (() => {
