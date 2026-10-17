@@ -26,6 +26,11 @@ Try **Record solo** to see the recording screen without a friend.
 - **Dropped calls:** if the call drops, recording keeps going and the joining phone reconnects by itself. If the friend's phone stopped recording, it restarts it.
 - **Other:** mute (affects the live call only, not your recording), call quality (delay and packet loss), screen kept awake, low-battery warning.
 
+## Screen off and installing as an app
+- **Timer:** the big HH:MM:SS clock on the call screen counts recorded time, and the friend card shows the other phone's timer.
+- **Screen off:** audio goes from the audio thread straight to the disk writer, so a slow or paused page doesn't drop audio. (Tested by freezing the page for 4 s: no audio was lost.) Android Chrome normally keeps a live call and mic running with the screen off. Android can still pause Chrome to save battery, though, and that hasn't been tried on your phones. Do a 2-minute screen-off test first. **Keep the screen on** (in settings) is on by default and is the safest choice; turn the brightness down. Set Chrome's battery use to Unrestricted (Settings › Apps › Chrome › Battery).
+- **Install as an app:** Chrome ⋮ › Add to Home screen › Install, or the Install button on the page. It opens full screen with its own icon, loads without signal, and keeps your recordings. It runs on the same Chrome engine, so screen-off behaviour doesn't change. A native Android app would be needed to guarantee background recording.
+
 ## If it won't connect
 Put both phones on Wi-Fi. Calls use direct connections with Google STUN and no relay server, so some mobile networks block them. Check the code, and keep the first phone on the call screen.
 

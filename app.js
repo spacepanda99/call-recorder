@@ -28,7 +28,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("callrec." + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("callrec." + k, JSON.stringify(v)); } catch (e) {} },
 };
-const S = Object.assign({ name: "", tpl: "{date}_{time}_{me}_with_{friend}", afterSave: "download", autoLevel: true, micId: "", distance: 20 }, store.get("settings", {}));
+const S = Object.assign({ name: "", tpl: "{date}_{time}_{me}_with_{friend}", afterSave: "download", autoLevel: true, keepAwake: true, micId: "", distance: 20 }, store.get("settings", {}));
 const saveSettings = () => store.set("settings", S);
 let history = store.get("history", []);
 const saveHistory = () => store.set("history", history);
@@ -186,10 +186,46 @@ $("histList").addEventListener("click", async (ev) => {
 
 // ---------- microphone + AudioWorklet ----------
 const WORKLET = `
+// Runs on the audio thread. Sends raw blocks to the page for the meter, and while recording it
+// converts to 16-bit and sends 1-second chunks straight to the disk worker through "out".
 class Tap extends AudioWorkletProcessor {
-  process(inputs) { const ch = inputs[0] && inputs[0][0]; if (ch) this.port.postMessage(ch.slice(0)); return true; }
+  constructor() {
+    super();
+    this.out = null; this.rec = false; this.buf = new Int16Array(48000); this.n = 0; this.frames = 0; this.peak = 0; this.lastStat = 0;
+    this.port.onmessage = (e) => {
+      const m = e.data;
+      if (m.port) this.out = m.port;
+      if (m.cmd === "start") { this.rec = true; this.n = 0; this.frames = 0; this.peak = 0; this.lastStat = 0; }
+      if (m.cmd === "stop") {
+        if (this.rec) { this.rec = false; this.flush(); }
+        if (this.out) this.out.postMessage({ op: "flushed" });
+        this.port.postMessage({ stat: true, frames: this.frames, peak: this.peak, final: true });
+      }
+    };
+  }
+  flush() {
+    if (this.n && this.out) { const b = this.buf.slice(0, this.n).buffer; this.out.postMessage({ op: "write", buf: b }, [b]); }
+    this.n = 0;
+  }
+  process(inputs) {
+    const ch = inputs[0] && inputs[0][0];
+    if (!ch) return true;
+    this.port.postMessage(ch.slice(0));
+    if (this.rec) {
+      for (let i = 0; i < ch.length; i++) {
+        let v = ch[i]; const a = v < 0 ? -v : v; if (a > this.peak) this.peak = a;
+        v = v > 1 ? 1 : v < -1 ? -1 : v;
+        this.buf[this.n++] = v < 0 ? v * 0x8000 : v * 0x7fff;
+        if (this.n === this.buf.length) this.flush();
+      }
+      this.frames += ch.length;
+      if (this.frames - this.lastStat >= 4800) { this.lastStat = this.frames; this.port.postMessage({ stat: true, frames: this.frames, peak: this.peak }); }
+    }
+    return true;
+  }
 }
 registerProcessor("tap", Tap);`;
+let tap = null, direct = false, finalStat = null;
 let ctx = null, micStream = null, sendStream = null, micInfo = { label: "", rate: 0, bt: false };
 
 async function ensureMic() {
@@ -210,10 +246,20 @@ async function ensureMic() {
   if (ctx.sampleRate !== RATE) throw new Error("This browser would not run audio at 48 kHz (got " + ctx.sampleRate + ").");
   await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" })));
   const src = ctx.createMediaStreamSource(micStream);
-  const tap = new AudioWorkletNode(ctx, "tap", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: "explicit" });
+  tap = new AudioWorkletNode(ctx, "tap", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: "explicit" });
   const silent = ctx.createGain(); silent.gain.value = 0;     // keeps the node running without playing the mic back
   src.connect(tap).connect(silent).connect(ctx.destination);
-  tap.port.onmessage = (e) => onAudio(e.data);
+  tap.port.onmessage = (e) => {
+    const d = e.data;
+    if (!d.stat) { onAudio(d); return; }
+    if (direct) { recFrames = d.frames; recPeak = d.peak; }
+    if (d.final && finalStat) { finalStat(d); finalStat = null; }
+  };
+  if (opfs) {                                                  // wire the worklet straight to the disk worker
+    const ch = new MessageChannel();
+    worker.postMessage({ op: "port", port: ch.port1 }, [ch.port1]);
+    tap.port.postMessage({ port: ch.port2 }, [ch.port2]);
+  }
   if (ctx.state !== "running") await ctx.resume();
   sendStream = new MediaStream([t.clone()]);                  // separate copy for the call, so "mute" doesn't mute the recording
   sendStream.getAudioTracks()[0].enabled = !muted;
@@ -256,7 +302,7 @@ function onAudio(f32) {
   }
   if (peak >= 0.99) clipUntil = performance.now() + 1500;
   peakHold = Math.max(peak, peakHold * 0.92);
-  if (!recording) return;
+  if (!recording || direct) return;
   if (peak > recPeak) recPeak = peak;
   for (let i = 0; i < f32.length; i++) {
     const v = f32[i] > 1 ? 1 : f32[i] < -1 ? -1 : f32[i];
@@ -373,18 +419,24 @@ async function startRecording() {
   const file = "rec-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + ".wav";
   recEntry = { file, date: new Date().toISOString(), role, me: S.name, friend: friend.name, room: roomCode, status: "recording", markers: [], store: opfs ? "opfs" : "memory" };
   recEntry.exportName = buildName(recEntry);
-  try { if (opfs) await wcall({ op: "open", name: file }); }
+  try { if (opfs) await wcall({ op: "open", name: file, direct: true }); }
   catch (e) { log("Disk write failed (" + e.message + "), keeping this one in memory"); opfs = false; recEntry.store = "memory"; }
   history.unshift(recEntry); saveHistory();
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
   pendingLen = 0; memChunks = []; recFrames = 0; recPeak = 0; recording = true;
+  direct = recEntry.store === "opfs";
+  if (direct) tap.port.postMessage({ cmd: "start" });
   $("recBtn").classList.add("hidden"); show("stopBtn", true); $("markBtn").disabled = false; $("callCheckBtn").disabled = true;
   $("markList").textContent = ""; show("savedCard", false);
   log("Recording started");
 }
 async function stopRecording(tellFriend) {
   if (!recording) return;
-  recording = false; flushChunk();
+  recording = false;
+  if (direct) {
+    await Promise.race([new Promise((r) => { finalStat = r; tap.port.postMessage({ cmd: "stop" }); }), new Promise((r) => setTimeout(r, 2000))]);
+    direct = false;
+  } else flushChunk();
   if (tellFriend) send({ t: "stop" });
   show("stopBtn", false); $("recBtn").classList.remove("hidden"); $("markBtn").disabled = true; $("callCheckBtn").disabled = false;
   $("recState").textContent = "Saving…";
@@ -642,6 +694,7 @@ setInterval(updateQuality, 3000);
 // ---------- wake lock, battery, background ----------
 let wakeLock = null, hiddenAt = 0;
 async function requestWakeLock() {
+  if (!S.keepAwake) return;
   try { if ("wakeLock" in navigator) { wakeLock = await navigator.wakeLock.request("screen"); log("Screen will stay on"); } }
   catch (e) { log("Wake lock unavailable: keep the screen on yourself"); }
 }
@@ -697,6 +750,11 @@ if (!canPickFolder) $("afterSave").querySelector('option[value="folder"]').remov
 if (!navigator.canShare) $("afterSave").querySelector('option[value="share"]').remove();
 if (!$("afterSave").value) { $("afterSave").value = "download"; S.afterSave = "download"; }
 $("pickFolderBtn").onclick = pickFolder;
+$("keepAwake").checked = S.keepAwake;
+$("keepAwake").onchange = () => {
+  S.keepAwake = $("keepAwake").checked; saveSettings();
+  if (!S.keepAwake && wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; } else if (inCall) requestWakeLock();
+};
 $("autoLevel").checked = S.autoLevel;
 $("autoLevel").onchange = () => { S.autoLevel = $("autoLevel").checked; saveSettings(); };
 $("distance").innerHTML = DISTANCES.map((d) => '<option value="' + d + '">' + cmText(d) + "</option>").join("");
@@ -704,6 +762,13 @@ $("distance").value = String(S.distance);
 $("distance").onchange = () => { S.distance = +$("distance").value; saveSettings(); };
 $("micSelect").onchange = () => { S.micId = $("micSelect").value; saveSettings(); releaseMic(); log("Mic choice saved; it's used from the next check or call"); };
 preview();
+
+// ---------- install as an app ----------
+let installEvt = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; show("installBtn", true); });
+window.addEventListener("appinstalled", () => { show("installBtn", false); log("Installed as an app"); });
+$("installBtn").onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; show("installBtn", false); };
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 
 window.__app = { history: () => history, getEntryFile };   // used by the automated test
 

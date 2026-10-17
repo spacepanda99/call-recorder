@@ -5,6 +5,21 @@
 const RATE = 48000;
 let h = null, name = "", dataBytes = 0, writes = 0;
 let queue = Promise.resolve();
+let flushed = true, flushResolve = null;
+
+function writeData(buf) {
+  if (!h) return;
+  const u8 = new Uint8Array(buf);
+  h.write(u8, { at: 44 + dataBytes }); dataBytes += u8.byteLength;
+  if (++writes % 5 === 0) { h.write(header(dataBytes), { at: 0 }); h.flush(); }
+}
+// Audio arrives here straight from the AudioWorklet (a MessagePort), not through the page,
+// so recording keeps going even when the page's main thread is slowed down with the screen off.
+function onPort(e) {
+  const m = e.data;
+  if (m.op === "write") writeData(m.buf);
+  else if (m.op === "flushed") { flushed = true; if (flushResolve) { flushResolve(); flushResolve = null; } }
+}
 
 function header(bytes) {
   const v = new DataView(new ArrayBuffer(44));
@@ -45,18 +60,13 @@ async function handle(m) {
   if (m.op === "open") {
     h = await openHandle(m.name, true);
     h.truncate(0); h.write(header(0), { at: 0 }); h.flush();
-    name = m.name; dataBytes = 0; writes = 0;
+    name = m.name; dataBytes = 0; writes = 0; flushed = !m.direct;
     return { op: "opened", name };
   }
-  if (m.op === "write") {
-    if (!h) return null;
-    const u8 = new Uint8Array(m.buf);
-    h.write(u8, { at: 44 + dataBytes }); dataBytes += u8.byteLength;
-    if (++writes % 5 === 0) { h.write(header(dataBytes), { at: 0 }); h.flush(); }
-    return null;
-  }
+  if (m.op === "write") { writeData(m.buf); return null; }
   if (m.op === "close") {
     if (!h) return { op: "closed", name, bytes: 0 };
+    if (!flushed) await Promise.race([new Promise((r) => (flushResolve = r)), new Promise((r) => setTimeout(r, 3000))]);
     if (m.gain && m.gain > 1.01) applyGain(h, dataBytes, m.gain);
     h.write(header(dataBytes), { at: 0 }); h.flush(); h.close(); h = null;
     return { op: "closed", name, bytes: dataBytes, gain: m.gain || 1 };
@@ -76,6 +86,7 @@ async function handle(m) {
 
 onmessage = (e) => {
   const m = e.data;
+  if (m.op === "port") { m.port.onmessage = onPort; return; }
   queue = queue.then(() => handle(m)).then((r) => { if (r) postMessage({ ...r, id: m.id }); })
     .catch((err) => postMessage({ op: "error", id: m.id, error: String(err && err.message || err) }));
 };

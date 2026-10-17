@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Call Recorder</title>
+<meta name="theme-color" content="#111418">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root { --bg:#111418; --card:#1c2128; --text:#e8eaed; --muted:#9aa3ad; --accent:#3ddc84; --warn:#ffd54f; --red:#ff5252; --line:#2d343d; --field:#0c0f12; }
   * { box-sizing:border-box; }
@@ -69,6 +73,7 @@
       <label for="codeInput">Or join your friend's call</label>
       <input id="codeInput" class="codein" maxlength="4" placeholder="CODE" autocomplete="off">
       <button id="joinBtn" class="secondary">Join call</button>
+      <button id="installBtn" class="secondary hidden">Install as an app</button>
     </div>
 
     <div class="card">
@@ -108,6 +113,7 @@
           <div class="muted" id="folderInfo">No folder chosen.</div>
         </div>
         <div class="muted" id="noFolderNote" style="margin-top:6px">This browser can't pick folders from a web page (Android Chrome can't). To choose where each file goes, turn on Chrome ⋮ › Settings › Downloads › <b>Ask where to download files</b>, or pick <b>Share</b> above to save to Google Drive or a folder in the Files app. Every recording also stays in Recordings until you delete it.</div>
+        <label class="check" style="margin-top:12px"><input type="checkbox" id="keepAwake" checked>Keep the screen on during a call (safest). Turn off to let the screen sleep; see Help.</label>
         <label class="check" style="margin-top:12px"><input type="checkbox" id="autoLevel" checked>Auto-level on save: raise a quiet recording so its loudest peak is −3 dB (never lowers, never clips)</label>
         <label for="micSelect">Microphone</label>
         <select id="micSelect"><option value="">Phone default</option></select>
@@ -129,6 +135,8 @@
           <li>Either taps <b>Start recording</b>. Both phones count down 3-2-1 and record. The friend card shows that their phone is recording too.</li>
           <li>Either taps <b>Stop &amp; save</b>. Each phone saves its own file and lists it under Recordings.</li>
         </ol>
+        <div class="muted" style="margin-bottom:8px"><b>Screen off?</b> Recording keeps running on the audio thread and is written to storage every second, and Chrome normally keeps a live call and mic going with the screen off (you'll see Chrome's "using microphone" notice). Android can still pause Chrome to save battery, so do a 2-minute test with the screen off first. If the timer jumps or the file is short, leave <b>Keep the screen on</b> switched on and turn the brightness down. Don't swipe Chrome away, and keep it out of battery saver (Settings › Apps › Chrome › Battery › Unrestricted).</div>
+        <div class="muted" style="margin-bottom:8px"><b>Install as an app:</b> Chrome ⋮ › <b>Add to Home screen</b> › Install (or the Install button at the top). It opens full screen with its own icon and keeps your recordings. It runs on the same Chrome engine, so screen-off behaviour is the same.</div>
         <div class="muted"><b>Won't connect?</b> Put both phones on Wi-Fi (some mobile networks block direct calls). Check the code and keep the first phone on the call screen. If the call drops, recording keeps going and the page reconnects by itself. Try <b>Record solo</b> to see the recording screen without a friend.</div>
       </details>
     </div>
