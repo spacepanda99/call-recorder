@@ -31,7 +31,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("callrec." + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("callrec." + k, JSON.stringify(v)); } catch (e) {} },
 };
-const S = Object.assign({ name: "", tpl: "{date}_{time}_{me}_with_{friend}", afterSave: "download", autoLevel: true, keepAwake: true, micId: "", distance: 20 }, store.get("settings", {}));
+const S = Object.assign({ name: "", tpl: "{date}_{time}_{me}_with_{friend}", afterSave: "download", autoLevel: true, keepAwake: true, speakerOff: false, micId: "", distance: 20 }, store.get("settings", {}));
 const saveSettings = () => store.set("settings", S);
 let history = store.get("history", []);
 const saveHistory = () => store.set("history", history);
@@ -671,10 +671,10 @@ async function enterCall(mode, code) {
   await ensureMic();
   if (mode === "solo") {
     $("roomLabel").textContent = "Solo"; $("roomCode").textContent = "SOLO"; setStatus("Recording without a call.");
-    show("friendCard", false); $("muteBtn").disabled = true; $("recBtn").disabled = false;
+    show("friendCard", false); $("muteBtn").disabled = true; $("speakerBtn").disabled = true; $("recBtn").disabled = false;
     return;
   }
-  show("friendCard", true); $("muteBtn").disabled = false;
+  show("friendCard", true); $("muteBtn").disabled = false; $("speakerBtn").disabled = false;
   $("roomCode").textContent = code;
   if (mode === "host") {
     $("roomLabel").textContent = "Text your friend this code";
@@ -788,6 +788,15 @@ $("muteBtn").onclick = () => {
   $("muteBtn").textContent = muted ? "Unmute call" : "Mute call";
   log(muted ? "Muted on the call (still recording)" : "Unmuted");
 };
+// Speaker off only silences the friend's voice on this phone (for sitting in the same room).
+// The mic is a separate input with auto-gain off, so playback volume never changes the recording.
+function applySpeaker() {
+  $("remoteAudio").muted = S.speakerOff;
+  $("speakerBtn").textContent = S.speakerOff ? "Speaker on" : "Speaker off";
+  show("speakerNote", S.speakerOff);
+}
+$("speakerBtn").onclick = () => { S.speakerOff = !S.speakerOff; saveSettings(); applySpeaker(); log(S.speakerOff ? "Speaker off (mic still recording normally)" : "Speaker on"); };
+applySpeaker();
 $("hangupBtn").onclick = () => hangUp();
 
 $("myName").value = S.name;

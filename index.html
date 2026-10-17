@@ -23,6 +23,7 @@
   button:disabled { opacity:.4; }
   .btnrow { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
   .btnrow > button { flex:1 1 30%; margin:0; }
+  .btnrow.two > button { flex:1 1 45%; }
   label { display:block; font-size:14px; color:var(--muted); margin:10px 0 4px; }
   input, select { width:100%; font:inherit; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--field); color:var(--text); }
   input.codein { font-size:24px; letter-spacing:6px; text-transform:uppercase; text-align:center; }
@@ -112,7 +113,8 @@
     <div class="eyebrow">Get ready</div>
     <div class="card">
       <ul class="tips">
-        <li><span>🎧</span><div>Wear <b>wired</b> earphones so the other voice doesn't leak into your mic. Bluetooth earbud mics are low quality.</div></li>
+        <li><span>🎧</span><div>Apart: wear <b>wired</b> earphones so the other voice doesn't leak into your mic. Bluetooth earbud mics are low quality.</div></li>
+        <li><span>🪑</span><div>Same room: skip the earphones. Tap <b>Speaker off</b> on both phones and sit at least 1–2 m (3–6 ft) apart. The speaker doesn't affect your mic or your recording.</div></li>
         <li><span>📏</span><div>Hold the phone <b>15–20 cm (6–8 in) from your mouth</b>, a little to the side, so you talk across its bottom mic. That stops "p" and "b" pops.</div></li>
         <li><span>🛋️</span><div>Pick a quiet, soft room. Turn off fans and AC. Keep the phone still.</div></li>
       </ul>
@@ -219,11 +221,13 @@
       <div class="coach" id="coach">Talk normally to get distance advice. Your loud words should reach the green zone.</div>
       <button id="recBtn" disabled>Start recording</button>
       <button id="stopBtn" class="danger hidden">Stop &amp; save</button>
-      <div class="btnrow">
-        <button id="markBtn" class="secondary" disabled>Mark moment</button>
+      <div class="btnrow two">
+        <button id="speakerBtn" class="secondary">Speaker off</button>
         <button id="muteBtn" class="secondary">Mute call</button>
+        <button id="markBtn" class="secondary" disabled>Mark moment</button>
         <button id="callCheckBtn" class="secondary">Mic check</button>
       </div>
+      <div class="muted center hidden" id="speakerNote" style="margin-top:6px">Speaker off: you won't hear your friend. Your mic and recording are unchanged.</div>
       <div class="muted" id="markList"></div>
     </div>
 
