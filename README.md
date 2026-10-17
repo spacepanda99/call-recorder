@@ -52,4 +52,5 @@ Calls connect phone-to-phone directly when the network allows it. When it doesn'
 - These files are 48 kHz, 16-bit, mono WAV, one per speaker, and auto-level keeps peaks at −3 dB.
 
 ## Files
+- Before each deploy, run `node tools/bump-version.cjs X.Y.Z`. It updates the version footer, the `?v=` script URLs and the service-worker cache, so phones never mix old and new files.
 - `index.html`: the layout. `app.js`: the call, recording, coach and history. `rec-worker.js`: writes WAV files to OPFS. `peerjs.min.js`: PeerJS 1.5.4 (signaling uses the free PeerJS cloud server).
