@@ -190,7 +190,7 @@ async function renderStorage() {
     "</div></div>" +
     '<div class="space-note">' + (history.length ? gb(used) + " in " + history.length + " recording" + (history.length === 1 ? "" : "s") + " · " : "") +
     "346 MB per hour" + (low ? ' · <span style="color:var(--warn)">Low on space. Free some up before a long call.</span>' : "") +
-    "<br>After uploading to Boomie, delete recordings here to get the space back. Downloads are a second copy.</div>";
+    "<br>After uploading, you can delete your files here to free up space.</div>";
 }
 // Donut chart of the space Chrome allows this page: free, this app's recordings, everything else.
 function donut(free, mine, other) {
@@ -534,7 +534,7 @@ async function stopRecording(tellFriend) {
   if ($("svSh")) $("svSh").onclick = () => exportEntry(e, "share");
   if ($("svFo")) $("svFo").onclick = () => exportEntry(e, "folder");
   log("Saved " + e.exportName + " (" + hms(e.secs) + ")");
-  if (dbOf(recPeak * gain) < -6) log("Note: this recording is quiet. Boomie warns when the loudest peak is under -6 dB.");
+  if (dbOf(recPeak * gain) < -6) log("Note: this recording is quiet. Upload sites often flag files whose loudest peak is under -6 dB.");
   await exportEntry(e, S.afterSave);
 }
 function wavHeader(bytes) {
