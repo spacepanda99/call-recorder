@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GabLab</title>
-<meta name="app-version" content="1.8.1">
+<meta name="app-version" content="1.8.2">
 <meta name="theme-color" content="#0E1022">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -118,6 +118,14 @@
   .where-tag { display:inline-block; font-weight:700; font-size:14px; letter-spacing:.02em; margin-bottom:4px; }
   .where-tag.apart { color:#5CC8FF; }
   .where-tag.room { color:#FF7AD9; }
+  details.ready { margin-top:28px; padding:0 16px; }
+  details.ready > summary { list-style:none; display:flex; align-items:center; gap:10px; padding:16px 0; cursor:pointer; }
+  details.ready > summary::-webkit-details-marker { display:none; }
+  details.ready > summary .eyebrow { margin:0; }
+  details.ready > summary .ready-hint { flex:1; font-size:13px; color:var(--muted); }
+  details.ready > summary::after { content:"›"; color:#B4A8FF; font-size:22px; line-height:1; transition:transform .2s; }
+  details.ready[open] > summary::after { transform:rotate(90deg); }
+  details.ready .ready-body { padding-bottom:16px; }
 </style>
 </head>
 <body>
@@ -139,8 +147,9 @@
       <button id="joinBtn" class="secondary">Join call</button>
     </div>
 
-    <div class="eyebrow">Get ready</div>
-    <div class="card">
+    <details class="card ready" id="readyBox">
+      <summary><span class="eyebrow">Get ready</span><span class="ready-hint">Tips, mic check, solo</span></summary>
+      <div class="ready-body">
       <div class="where">
         <div class="where-row"><span class="where-tag apart">🎧 Apart</span><div>Wear <b>wired</b> earphones so the other voice doesn't leak into your mic. Bluetooth earbud mics are low quality.</div></div>
         <div class="where-row"><span class="where-tag room">🪑 Same room</span><div>Skip the earphones. Tap <b>Speaker off</b> on both phones and sit at least 1–2 m (3–6 ft) apart. The speaker doesn't affect your mic or your recording.</div></div>
@@ -153,7 +162,8 @@
         <button id="homeCheckBtn" class="secondary">Mic check</button>
         <button id="soloBtn" class="secondary">Record solo</button>
       </div>
-    </div>
+      </div>
+    </details>
 
     <div class="eyebrow">Your recordings</div>
     <div class="card">
@@ -275,11 +285,11 @@
     <button id="hangupBtn" class="secondary">Hang up</button>
     <div class="card" style="margin-top:12px"><details><summary class="muted">Details</summary><div id="log"></div></details></div>
   </section>
-  <footer id="ver" class="ver">GabLab v1.8.1</footer>
+  <footer id="ver" class="ver">GabLab v1.8.2</footer>
 </main>
 <div id="countdown" class="countdown hidden"></div>
 <audio id="remoteAudio" autoplay playsinline></audio>
 <script src="peerjs.min.js"></script>
-<script src="app.js?v=1.8.1"></script>
+<script src="app.js?v=1.8.2"></script>
 </body>
 </html>
