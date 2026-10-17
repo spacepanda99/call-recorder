@@ -7,7 +7,7 @@ const RATE = 48000;
 const ICE = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }];
 // Relay (TURN) credentials come from our Cloudflare Worker (turn-worker/). When a direct
 // phone-to-phone link is blocked (common on mobile data), the call goes through the relay.
-const TURN_URL = "";
+const TURN_URL = "https://callrec-turn.michaelgodekirk.workers.dev/ice";
 const WIN = 2400;                          // 50 ms analysis window
 const TARGET_PEAK_DB = -4;                 // where loud words should land
 const DISTANCES = [8, 10, 12, 15, 20, 25, 30, 40, 45];

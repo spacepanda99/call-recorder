@@ -37,8 +37,14 @@ Try **Record solo** to see the recording screen without a friend.
 - **Screen off:** audio goes from the audio thread straight to the disk writer, so a slow or paused page doesn't drop audio. (Tested by freezing the page for 4 s: no audio was lost.) Android Chrome normally keeps a live call and mic running with the screen off. Android can still pause Chrome to save battery, though, and that hasn't been tried on your phones. Do a 2-minute screen-off test first. **Keep the screen on** (in settings) is on by default and is the safest choice; turn the brightness down. Set Chrome's battery use to Unrestricted (Settings › Apps › Chrome › Battery).
 - **Install as an app:** Chrome ⋮ › Add to Home screen › Install, or the Install button on the page. It opens full screen with its own icon, loads without signal, and keeps your recordings. It runs on the same Chrome engine, so screen-off behaviour doesn't change. A native Android app would be needed to guarantee background recording.
 
-## If it won't connect
-Put both phones on Wi-Fi. Calls use direct connections with Google STUN and no relay server, so some mobile networks block them. Check the code, and keep the first phone on the call screen.
+## Connecting on any network
+Calls connect phone-to-phone directly when the network allows it. When it doesn't (common on mobile data, because carriers share one address between many phones), the call goes through Cloudflare's relay (TURN) servers, the same approach games and video-call apps use. The call screen shows "direct" or "via relay". Tested: a call forced through the relay connected with 25 ms delay and recorded normally.
+
+- `turn-worker/` is a Cloudflare Worker at https://callrec-turn.michaelgodekirk.workers.dev/ice. It hands the page 24-hour relay logins and keeps the TURN key secret. It only answers this site, and it caches logins for an hour.
+- The secrets `TURN_KEY_ID` and `TURN_KEY_API_TOKEN` are set in the Cloudflare dashboard (Workers & Pages › callrec-turn › Settings › Variables and Secrets).
+- Cost: the first 1,000 GB of relay traffic each month is free, then $0.05/GB. Voice uses about 60 MB per hour.
+- To redeploy: `cd turn-worker && npx wrangler deploy`.
+- To test the relay: More › Troubleshooting › "Always use the relay".
 
 ## Boomie upload rules (from the uploader's own checks, app.boomie.ai, 2026-10-17)
 - Accepted: mono or stereo, 8 to 192 kHz, at least 1 second long. WAV, FLAC, MP3, M4A, Opus or OGG; lossless is preferred.
