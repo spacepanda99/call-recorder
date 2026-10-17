@@ -135,7 +135,7 @@
     <div class="eyebrow">More</div>
     <div class="card list">
       <details>
-        <summary>Saving, file names &amp; mic</summary>
+        <summary>Saving &amp; file names</summary>
         <div class="dbody">
         <label for="nameTpl">File name pattern</label>
         <input id="nameTpl">
@@ -154,10 +154,17 @@
         <div class="muted" id="noFolderNote" style="margin-top:6px">Android Chrome can't pick folders from a web page. To choose where each file goes, turn on Chrome ⋮ › Settings › Downloads › <b>Ask where to download files</b>, or pick <b>Share</b> to save to Google Drive or the Files app.</div>
         <label class="check" style="margin-top:12px"><input type="checkbox" id="keepAwake" checked>Keep the screen on during a call (safest)</label>
         <label class="check" style="margin-top:8px"><input type="checkbox" id="autoLevel" checked>Auto-level on save (raise quiet files to a −3 dB peak; never lowers or clips)</label>
-        <label for="micSelect">Microphone</label>
+        </div>
+      </details>
+      <details>
+        <summary>Microphone &amp; distance</summary>
+        <div class="dbody">
+        <label for="micSelect" style="margin-top:0">Microphone</label>
         <select id="micSelect"><option value="">Phone default</option></select>
+        <div class="muted" style="margin-top:4px">Pick the phone's own mic if earbuds take over. The list fills in after the first mic check or call.</div>
         <label for="distance">How far the phone usually is from your mouth</label>
         <select id="distance"></select>
+        <div class="muted" style="margin-top:4px">The coach uses this to work out its distance advice. Mic check can set it for you.</div>
         </div>
       </details>
       <details>

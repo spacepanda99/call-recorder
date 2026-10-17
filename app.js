@@ -308,7 +308,7 @@ async function ensureMic() {
   sendStream.getAudioTracks()[0].enabled = !muted;
   log("Audio engine at " + ctx.sampleRate + " Hz");
   listMics();
-  if (micInfo.bt) banner("A Bluetooth mic is in use (" + esc(micInfo.label) + "). Bluetooth call mics are low quality. Use wired earphones, or pick the phone's own mic under Saving, file names &amp; mic.");
+  if (micInfo.bt) banner("A Bluetooth mic is in use (" + esc(micInfo.label) + "). Bluetooth call mics are low quality. Use wired earphones, or pick the phone's own mic under More › Microphone &amp; distance.");
 }
 function releaseMic() {
   if (recording || inCall) return;
@@ -447,7 +447,7 @@ async function runCheck() {
   $("checkResult").innerHTML = '<table class="result">' + rows.map((r) => "<tr><td>" + r[0] + "</td><td>" + r[1] + "</td></tr>").join("") + "</table>" +
     '<div class="coach ' + (rec && Math.abs(rec - S.distance) <= 2 && snr >= 25 ? "good" : "warn") + '">' + advice + "</div>" +
     (rec && rec !== S.distance ? '<button id="useDistBtn">Use ' + cmText(rec) + " from now on</button>" : "") +
-    '<div class="muted" style="margin-top:6px">Wrong starting distance? Set it under Saving, file names &amp; mic, then run the check again.</div>';
+    '<div class="muted" style="margin-top:6px">Wrong starting distance? Set it under More › Microphone &amp; distance, then run the check again.</div>';
   show("checkResult", true);
   $("checkStep").textContent = "Done.";
   $("checkStartBtn").textContent = "Run again"; $("checkStartBtn").disabled = false;
