@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Call Recorder</title>
+<style>
+  :root { --bg:#111418; --card:#1c2128; --text:#e8eaed; --muted:#9aa3ad; --accent:#3ddc84; --red:#ff5252; --line:#2d343d; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.4 system-ui, sans-serif; }
+  main { max-width:480px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:4px 0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:12px; }
+  button { width:100%; font:inherit; font-weight:600; padding:14px; border-radius:10px; border:0; background:var(--accent); color:#06210f; margin-top:8px; }
+  button.secondary { background:#2d343d; color:var(--text); }
+  button.danger { background:var(--red); color:#fff; }
+  button:disabled { opacity:.4; }
+  input { width:100%; font:inherit; font-size:24px; letter-spacing:6px; text-transform:uppercase; text-align:center; padding:12px; border-radius:10px; border:1px solid var(--line); background:#0c0f12; color:var(--text); }
+  .code { font-size:40px; font-weight:700; letter-spacing:8px; text-align:center; }
+  .muted { color:var(--muted); font-size:14px; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; }
+  .timer { font-size:44px; font-variant-numeric:tabular-nums; text-align:center; font-weight:700; }
+  .rec-dot { display:inline-block; width:12px; height:12px; border-radius:50%; background:var(--red); margin-right:8px; animation:blink 1s infinite; }
+  @keyframes blink { 50% { opacity:.2; } }
+  .meter { height:14px; background:#0c0f12; border-radius:7px; overflow:hidden; border:1px solid var(--line); }
+  .meter > div { height:100%; width:0; background:linear-gradient(90deg, var(--accent) 70%, #ffd54f 85%, var(--red)); transition:width 60ms linear; }
+  .clip { color:var(--red); font-weight:700; visibility:hidden; }
+  .hidden { display:none !important; }
+  #log { font-size:13px; color:var(--muted); white-space:pre-wrap; }
+  a.file { display:block; margin-top:8px; color:var(--accent); word-break:break-all; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Call Recorder <span class="muted">48 kHz WAV</span></h1>
+
+  <!-- 1. Join -->
+  <section id="joinView">
+    <div class="card">
+      <button id="newRoomBtn">Start a new call</button>
+      <p class="muted">Or join your friend's call:</p>
+      <input id="codeInput" maxlength="4" placeholder="CODE" autocomplete="off" inputmode="text">
+      <button id="joinBtn" class="secondary">Join call</button>
+    </div>
+    <div class="card muted">Use earbuds or headphones on both phones. Without them, the other person's voice leaks into your recording.</div>
+    <div id="recoverCard" class="card hidden">
+      <div>An unsaved recording from earlier was found.</div>
+      <button id="recoverBtn" class="secondary">Save it as WAV</button>
+    </div>
+  </section>
+
+  <!-- 2. Call -->
+  <section id="callView" class="hidden">
+    <div class="card">
+      <div class="muted" id="roomLabel">Room</div>
+      <div class="code" id="roomCode">----</div>
+      <div class="muted" id="status">Starting…</div>
+    </div>
+
+    <div class="card">
+      <div class="row"><span>Your mic</span><span class="clip" id="clip">CLIPPING</span></div>
+      <div class="meter"><div id="meterBar"></div></div>
+      <div class="timer" id="timer">00:00:00</div>
+      <div class="muted" style="text-align:center" id="recState">Not recording</div>
+      <div class="muted" style="text-align:center" id="loud">Loudest so far: – (aim for −6 to −1 dB)</div>
+      <button id="recBtn" disabled>Start recording (both phones)</button>
+      <button id="stopBtn" class="danger hidden">Stop recording &amp; save</button>
+    </div>
+
+    <div class="card hidden" id="filesCard">
+      <div>Saved files (also in your Downloads folder):</div>
+      <div id="files"></div>
+    </div>
+
+    <button id="hangupBtn" class="secondary">Hang up</button>
+    <div class="card"><div id="log"></div></div>
+  </section>
+</main>
+
+<audio id="remoteAudio" autoplay playsinline></audio>
+<script src="peerjs.min.js"></script>
+<script>
+"use strict";
+const PREFIX = "boomirec-v1-";     // peer ids on the free PeerJS server: PREFIX + room code
+const RATE = 48000;
+const CHUNK_FRAMES = RATE;         // 1 second per stored chunk
+const ICE = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }];
+
+const $ = (id) => document.getElementById(id);
+const log = (m) => { $("log").textContent = new Date().toLocaleTimeString() + "  " + m + "\n" + $("log").textContent; };
+const setStatus = (m) => { $("status").textContent = m; };
+
+let peer, call, conn, micStream, ctx, workletNode;
+let role = "";                       // "host" or "guest"
+let roomCode = "";
+let recording = false, recSession = null, recStart = 0, recFrames = 0;
+let pending = new Int16Array(CHUNK_FRAMES), pendingLen = 0, chunks = [], chunkIdx = 0;
+let recPeak = 0, peakHold = 0, clipUntil = 0, wakeLock = null;
+
+// ---------- crash-safe chunk storage (IndexedDB) ----------
+let dbp = null;
+function db() {
+  if (!dbp) dbp = new Promise((res, rej) => {
+    const r = indexedDB.open("callrec", 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore("chunks"); r.result.createObjectStore("sessions"); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  return dbp;
+}
+async function idb(store, mode, fn) {
+  const d = await db();
+  return new Promise((res, rej) => {
+    const tx = d.transaction(store, mode); const out = fn(tx.objectStore(store));
+    tx.oncomplete = () => res(out && out.result); tx.onerror = () => rej(tx.error);
+  });
+}
+const putChunk = (sid, i, buf) => idb("chunks", "readwrite", (s) => s.put(buf, sid + ":" + String(i).padStart(7, "0"))).catch((e) => log("Backup write failed: " + e));
+const putSession = (sid, meta) => idb("sessions", "readwrite", (s) => s.put(meta, sid)).catch(() => {});
+async function deleteSession(sid) {
+  try {
+    await idb("chunks", "readwrite", (s) => s.delete(IDBKeyRange.bound(sid + ":", sid + ":￿")));
+    await idb("sessions", "readwrite", (s) => s.delete(sid));
+  } catch (e) {}
+}
+
+// ---------- WAV ----------
+function wavHeader(dataBytes) {
+  const h = new DataView(new ArrayBuffer(44));
+  const str = (o, s) => { for (let i = 0; i < 4; i++) h.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); h.setUint32(4, 36 + dataBytes, true); str(8, "WAVE");
+  str(12, "fmt "); h.setUint32(16, 16, true); h.setUint16(20, 1, true); h.setUint16(22, 1, true);
+  h.setUint32(24, RATE, true); h.setUint32(28, RATE * 2, true); h.setUint16(32, 2, true); h.setUint16(34, 16, true);
+  str(36, "data"); h.setUint32(40, dataBytes, true);
+  return h.buffer;
+}
+function saveWav(parts, name) {
+  const bytes = parts.reduce((n, p) => n + (p.size !== undefined ? p.size : p.byteLength), 0);
+  const blob = new Blob([wavHeader(bytes), ...parts], { type: "audio/wav" });
+  window.__lastWav = blob;           // used by the automated test
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; a.className = "file";
+  a.textContent = name + "  (" + (bytes / RATE / 2 / 60).toFixed(1) + " min, " + (blob.size / 1048576).toFixed(1) + " MB)";
+  $("files").prepend(a); $("filesCard").classList.remove("hidden");
+  a.click();
+  log("Saved " + name);
+}
+const stamp = () => { const d = new Date(), p = (n) => String(n).padStart(2, "0"); return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()); };
+
+// ---------- microphone + AudioWorklet ----------
+const WORKLET = `
+class Tap extends AudioWorkletProcessor {
+  process(inputs) {
+    const ch = inputs[0] && inputs[0][0];
+    if (ch) this.port.postMessage(ch.slice(0));
+    return true;
+  }
+}
+registerProcessor("tap", Tap);`;
+
+async function startMic() {
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1, sampleRate: RATE },
+    video: false,
+  });
+  const t = micStream.getAudioTracks()[0], s = t.getSettings();
+  log("Mic: " + (t.label || "default") + " | rate " + (s.sampleRate || "?") + " | echoCancel " + s.echoCancellation + " | noiseSup " + s.noiseSuppression + " | AGC " + s.autoGainControl);
+  ctx = new AudioContext({ sampleRate: RATE, latencyHint: "interactive" });
+  if (ctx.sampleRate !== RATE) throw new Error("This browser would not run audio at 48 kHz (got " + ctx.sampleRate + ").");
+  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" })));
+  const src = ctx.createMediaStreamSource(micStream);
+  workletNode = new AudioWorkletNode(ctx, "tap", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: "explicit" });
+  const silent = ctx.createGain(); silent.gain.value = 0;    // keeps the node pulled without playing the mic back
+  src.connect(workletNode).connect(silent).connect(ctx.destination);
+  workletNode.port.onmessage = (e) => onAudio(e.data);
+  if (ctx.state !== "running") await ctx.resume();
+  log("Audio engine at " + ctx.sampleRate + " Hz");
+}
+
+function onAudio(f32) {
+  let peak = 0;
+  for (let i = 0; i < f32.length; i++) { const v = Math.abs(f32[i]); if (v > peak) peak = v; }
+  if (peak >= 0.99) clipUntil = performance.now() + 1500;
+  peakHold = Math.max(peak, peakHold * 0.9);
+  if (!recording) return;
+  for (let i = 0; i < f32.length; i++) {
+    const v = Math.max(-1, Math.min(1, f32[i]));
+    pending[pendingLen++] = v < 0 ? v * 0x8000 : v * 0x7fff;
+    if (pendingLen === CHUNK_FRAMES) flushChunk();
+  }
+  recFrames += f32.length;
+  if (peak > recPeak) recPeak = peak;
+}
+function flushChunk() {
+  if (!pendingLen) return;
+  const buf = pending.slice(0, pendingLen).buffer;
+  chunks.push(new Blob([buf])); putChunk(recSession, chunkIdx++, buf);
+  pendingLen = 0;
+}
+
+function drawMeter() {
+  const db = 20 * Math.log10(peakHold || 1e-6);           // -60 dB .. 0 dB
+  $("meterBar").style.width = Math.max(0, Math.min(100, (db + 60) / 60 * 100)) + "%";
+  $("clip").style.visibility = performance.now() < clipUntil ? "visible" : "hidden";
+  if (recording) {
+    const pdb = recPeak > 0 ? 20 * Math.log10(recPeak) : -99;
+    $("loud").textContent = "Loudest so far: " + (pdb < -90 ? "silent" : pdb.toFixed(1) + " dB") + (pdb < -6 ? "  (too quiet, move the phone closer)" : "  (good)");
+    const s = Math.floor(recFrames / RATE), p = (n) => String(n).padStart(2, "0");
+    $("timer").textContent = p(Math.floor(s / 3600)) + ":" + p(Math.floor(s / 60) % 60) + ":" + p(s % 60);
+  }
+  requestAnimationFrame(drawMeter);
+}
+
+// ---------- recording control (both phones start/stop together) ----------
+function startRecording(fromPeer) {
+  if (recording) return;
+  recSession = "s" + Date.now(); chunks = []; chunkIdx = 0; pendingLen = 0; recFrames = 0; recPeak = 0;
+  putSession(recSession, { name: "call-" + role + "-" + stamp() + ".wav", done: false });
+  recording = true; recStart = Date.now();
+  if (!fromPeer && conn && conn.open) conn.send({ t: "rec" });
+  $("recBtn").classList.add("hidden"); $("stopBtn").classList.remove("hidden");
+  $("recState").innerHTML = '<span class="rec-dot"></span>Recording';
+  log("Recording started" + (fromPeer ? " (by friend)" : ""));
+}
+async function stopRecording(fromPeer) {
+  if (!recording) return;
+  recording = false; flushChunk();
+  if (!fromPeer && conn && conn.open) conn.send({ t: "stop" });
+  $("stopBtn").classList.add("hidden"); $("recBtn").classList.remove("hidden");
+  $("recState").textContent = "Stopped";
+  saveWav(chunks, "call-" + role + "-" + stamp() + ".wav");
+  const pdb = 20 * Math.log10(recPeak || 1e-6);
+  if (pdb < -6) log("Note: this recording is quiet (loudest " + pdb.toFixed(1) + " dB). Boomie warns below -6 dB.");
+  await deleteSession(recSession);
+  chunks = [];
+}
+
+// ---------- peer connection ----------
+function newPeer(id) {
+  return new Promise((res, rej) => {
+    const p = new Peer(id, { config: { iceServers: ICE }, debug: 1 });
+    p.on("open", () => res(p));
+    p.on("error", (e) => { if (!peer) rej(e); else { log("Peer error: " + e.type); if (e.type === "peer-unavailable") setStatus("No call with that code. Check the code and try again."); } });
+    p.on("disconnected", () => { log("Signaling server disconnected, reconnecting…"); try { p.reconnect(); } catch (e) {} });
+  });
+}
+function wireCall(c) {
+  call = c;
+  c.on("stream", (s) => { $("remoteAudio").srcObject = s; $("remoteAudio").play().catch(() => {}); setStatus("Connected. You can talk."); $("recBtn").disabled = false; log("Audio connected"); });
+  c.on("close", () => onPeerGone());
+  c.on("error", (e) => log("Call error: " + e));
+  const pc = c.peerConnection;
+  if (pc) pc.addEventListener("iceconnectionstatechange", () => {
+    log("Link: " + pc.iceConnectionState);
+    if (pc.iceConnectionState === "failed") setStatus("Could not connect. Try both phones on Wi-Fi.");
+  });
+}
+function wireConn(c) {
+  conn = c;
+  c.on("data", (m) => { if (m && m.t === "rec") startRecording(true); if (m && m.t === "stop") stopRecording(true); if (m && m.t === "bye") onPeerGone(); });
+  c.on("close", () => onPeerGone());
+}
+function onPeerGone() {
+  setStatus("Friend left the call."); $("recBtn").disabled = true;
+  if (recording) stopRecording(true);
+}
+
+async function enterCall(asHost, code) {
+  role = asHost ? "host" : "guest"; roomCode = code;
+  $("joinView").classList.add("hidden"); $("callView").classList.remove("hidden");
+  $("roomCode").textContent = code;
+  $("roomLabel").textContent = asHost ? "Tell your friend this code" : "Joined room";
+  requestWakeLock();
+  await startMic();
+  if (asHost) {
+    peer = await newPeer(PREFIX + code);
+    setStatus("Waiting for your friend to join…");
+    peer.on("call", (c) => { if (call) { c.close(); return; } c.answer(micStream); wireCall(c); });
+    peer.on("connection", (c) => { if (conn) { c.close(); return; } wireConn(c); });
+  } else {
+    peer = await newPeer();
+    setStatus("Connecting…");
+    wireConn(peer.connect(PREFIX + code, { reliable: true }));
+    wireCall(peer.call(PREFIX + code, micStream));
+  }
+}
+async function hostRoom() {
+  for (let tries = 0; tries < 5; tries++) {
+    const code = Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => "ABCDEFGHJKMNPQRSTUVWXYZ23456789"[b % 31]).join("");
+    try { await enterCall(true, code); return; }
+    catch (e) { if (e && e.type === "unavailable-id") continue; throw e; }
+  }
+}
+
+// ---------- wake lock ----------
+async function requestWakeLock() {
+  try { if ("wakeLock" in navigator) { wakeLock = await navigator.wakeLock.request("screen"); log("Screen will stay on"); } }
+  catch (e) { log("Wake lock unavailable: keep the screen on yourself"); }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && peer && !peer.destroyed && (!wakeLock || wakeLock.released)) requestWakeLock(); if (document.visibilityState === "visible" && ctx && ctx.state !== "running") ctx.resume(); });
+
+// ---------- recovery of a recording interrupted by a crash or closed tab ----------
+async function checkRecovery() {
+  try {
+    const keys = await idb("sessions", "readonly", (s) => s.getAllKeys());
+    if (keys && keys.length) { $("recoverCard").classList.remove("hidden"); return keys; }
+  } catch (e) {}
+  return [];
+}
+$("recoverBtn").onclick = async () => {
+  const keys = await idb("sessions", "readonly", (s) => s.getAllKeys());
+  for (const sid of keys) {
+    const meta = await idb("sessions", "readonly", (s) => s.get(sid));
+    const parts = await idb("chunks", "readonly", (s) => s.getAll(IDBKeyRange.bound(sid + ":", sid + ":￿")));
+    if (parts && parts.length) saveWav(parts, (meta && meta.name || "recovered.wav").replace(".wav", "-recovered.wav"));
+    await deleteSession(sid);
+  }
+  $("filesCard").classList.remove("hidden"); $("recoverCard").classList.add("hidden");
+  $("joinView").appendChild($("filesCard"));
+};
+
+// ---------- buttons ----------
+const fail = (e) => { log("Error: " + (e && (e.message || e.type) || e)); setStatus("Error: " + (e && (e.message || e.type) || e)); };
+$("newRoomBtn").onclick = () => hostRoom().catch(fail);
+$("joinBtn").onclick = () => {
+  const code = $("codeInput").value.trim().toUpperCase();
+  if (code.length !== 4) { $("codeInput").focus(); return; }
+  enterCall(false, code).catch(fail);
+};
+$("recBtn").onclick = () => startRecording(false);
+$("stopBtn").onclick = () => stopRecording(false);
+$("hangupBtn").onclick = async () => {
+  if (recording) await stopRecording(false);
+  try { conn && conn.open && conn.send({ t: "bye" }); } catch (e) {}
+  setTimeout(() => { try { call && call.close(); peer && peer.destroy(); } catch (e) {} micStream && micStream.getTracks().forEach((t) => t.stop()); ctx && ctx.close(); wakeLock && wakeLock.release(); setStatus("Call ended."); $("recBtn").disabled = true; $("hangupBtn").disabled = true; }, 300);
+};
+window.addEventListener("beforeunload", (e) => { if (recording) { e.preventDefault(); e.returnValue = ""; } });
+
+if (!window.isSecureContext) alert("This page must be opened over https:// for the microphone to work.");
+checkRecovery();
+requestAnimationFrame(drawMeter);
+</script>
+</body>
+</html>
