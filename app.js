@@ -183,14 +183,31 @@ async function renderStorage() {
   $("storageInfo").textContent = history.length ? gb(used) + " in this app" : "";
   if (!sp) { $("spaceCard").innerHTML = '<div class="space-note">Free space unknown in this browser. Recording uses 346 MB per hour.</div>'; return; }
   const low = sp.free < 2 * BYTES_PER_HOUR;
-  const total = sp.free + sp.usage, pctOf = (b) => Math.max(b > 0 ? 1.5 : 0, (100 * b) / (total || 1));
-  $("spaceCard").innerHTML =
-    '<div class="space-top"><span><b>' + hm(sp.free) + "</b> of recording space left</span><span>" + gb(sp.free) + " free</span></div>" +
-    '<div class="usage" title="Used by this app vs. free"><i style="width:' + pctOf(used) + '%;background:var(--accent)"></i><i style="width:' +
-    pctOf(Math.max(0, sp.usage - used)) + '%;background:#3A3F6B"></i></div>' +
+  $("spaceCard").innerHTML = '<div class="space-row">' + donut(sp.free, used, Math.max(0, sp.usage - used)) +
+    '<div class="space-text"><div><b>' + hm(sp.free) + "</b> of recording left</div>" +
+    '<div class="muted">' + gb(sp.free) + " free for GabLab</div>" +
+    '<div class="legend"><span><i style="background:var(--accent)"></i>Free</span><span><i style="background:var(--pink)"></i>Recordings</span><span><i style="background:#3A3F6B"></i>App data</span></div>' +
+    "</div></div>" +
     '<div class="space-note">' + (history.length ? gb(used) + " in " + history.length + " recording" + (history.length === 1 ? "" : "s") + " · " : "") +
     "346 MB per hour" + (low ? ' · <span style="color:var(--warn)">Low on space. Free some up before a long call.</span>' : "") +
     "<br>After uploading to Boomie, delete recordings here to get the space back. Downloads are a second copy.</div>";
+}
+// Donut chart of the space Chrome allows this page: free, this app's recordings, everything else.
+function donut(free, mine, other) {
+  const total = free + mine + other || 1;
+  const parts = [[free, "var(--accent)"], [mine, "var(--pink)"], [other, "#3A3F6B"]]
+    .map(([v, c]) => [v > 0 ? Math.max(1.2, (100 * v) / total) : 0, c]);
+  const scale = 100 / parts.reduce((n, p) => n + p[0], 0);
+  let at = 25, rings = "";
+  for (const [v0, c] of parts) {
+    const v = v0 * scale; if (!v) continue;
+    rings += '<circle r="15.915" cx="21" cy="21" fill="none" stroke="' + c + '" stroke-width="5" stroke-dasharray="' + v.toFixed(2) + " " + (100 - v).toFixed(2) + '" stroke-dashoffset="' + at.toFixed(2) + '"/>';
+    at -= v;
+  }
+  const pctFree = Math.round((100 * free) / total);
+  return '<svg class="donut" viewBox="0 0 42 42" role="img" aria-label="' + pctFree + '% free">' +
+    '<circle r="15.915" cx="21" cy="21" fill="none" stroke="var(--field)" stroke-width="5"/>' + rings +
+    '<text x="21" y="20.5" text-anchor="middle" class="d-big">' + pctFree + '%</text><text x="21" y="27" text-anchor="middle" class="d-small">free</text></svg>';
 }
 let spaceLeft = null;
 async function spaceTick() {
