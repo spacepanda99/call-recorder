@@ -182,7 +182,8 @@
       <details>
         <summary>Troubleshooting</summary>
         <div class="dbody muted">
-        <p><b>Won't connect?</b> Put both phones on Wi-Fi (some mobile networks block direct calls). Check the code and keep the first phone on the call screen. If the call drops, recording keeps going and the page reconnects by itself.</p>
+        <p><b>Won't connect?</b> Check the code, and keep the first phone on the call screen. Calls connect directly when they can. When a network blocks that (common on mobile data), they go through a relay server, and the call screen shows "via relay". If the call drops, recording keeps going and the page reconnects by itself.</p>
+        <label class="check"><input type="checkbox" id="forceRelay">Always use the relay (for testing the relay)</label>
         <p><b>Screen off?</b> Recording runs on the audio thread and is saved every second, and Chrome usually keeps a live call going with the screen off. Android can still pause Chrome to save battery, so do a 2-minute test first. If the file comes out short, keep <b>Keep the screen on</b> switched on and turn the brightness down. Set Chrome's battery use to Unrestricted (Settings › Apps › Chrome › Battery).</p>
         <p><b>Install as an app:</b> tap <b>Install</b> at the top, or Chrome ⋮ › <b>Add to Home screen</b>. It opens full screen with its own icon. Screen-off behaviour stays the same.</p>
         </div>

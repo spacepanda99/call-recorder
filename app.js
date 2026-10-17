@@ -5,6 +5,9 @@
 const PREFIX = "boomirec-v1-";            // peer ids on the free PeerJS server: PREFIX + room code
 const RATE = 48000;
 const ICE = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }];
+// Relay (TURN) credentials come from our Cloudflare Worker (turn-worker/). When a direct
+// phone-to-phone link is blocked (common on mobile data), the call goes through the relay.
+const TURN_URL = "";
 const WIN = 2400;                          // 50 ms analysis window
 const TARGET_PEAK_DB = -4;                 // where loud words should land
 const DISTANCES = [8, 10, 12, 15, 20, 25, 30, 40, 45];
@@ -31,7 +34,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("callrec." + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("callrec." + k, JSON.stringify(v)); } catch (e) {} },
 };
-const S = Object.assign({ name: "", tpl: "{date}_{time}_{me}_with_{friend}", afterSave: "download", autoLevel: true, keepAwake: true, speakerOff: false, micId: "", distance: 20 }, store.get("settings", {}));
+const S = Object.assign({ name: "", tpl: "{date}_{time}_{me}_with_{friend}", afterSave: "download", autoLevel: true, keepAwake: true, speakerOff: false, forceRelay: false, micId: "", distance: 20 }, store.get("settings", {}));
 const saveSettings = () => store.set("settings", S);
 let history = store.get("history", []);
 const saveHistory = () => store.set("history", history);
@@ -571,9 +574,24 @@ let friend = { name: "", rec: false, secs: 0, db: -120, cls: "", seen: 0 }, ever
 let reconnectTimer = null, reconnectTries = 0;
 
 function send(m) { try { if (conn && conn.open) conn.send(m); } catch (e) {} }
+let iceServers = null, relayReady = false;
+async function loadIce() {
+  if (!TURN_URL) { log("No relay server set up yet: calls must connect directly"); return; }
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 5000);
+    const r = await fetch(TURN_URL, { signal: ctl.signal, cache: "no-store" }); clearTimeout(t);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    if (!d.iceServers || !d.iceServers.length) throw new Error("no servers");
+    iceServers = ICE.concat(d.iceServers); relayReady = true;
+    log("Relay server ready (used only if a direct link fails)" + (S.forceRelay ? "; forcing relay for testing" : ""));
+  } catch (e) { iceServers = null; relayReady = false; log("Relay server unavailable (" + e.message + "); trying direct only"); }
+}
 function newPeer(id) {
   return new Promise((res, rej) => {
-    const p = new Peer(id, { config: { iceServers: ICE }, debug: 1 });
+    const config = { iceServers: iceServers || ICE };
+    if (S.forceRelay && relayReady) config.iceTransportPolicy = "relay";
+    const p = new Peer(id, { config, debug: 1 });
     let opened = false;
     p.on("open", () => { opened = true; res(p); });
     p.on("error", (e) => {
@@ -604,6 +622,7 @@ function wireCall(c) {
     if (call !== c) return;
     log("Link: " + pc.iceConnectionState);
     if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") lost();
+    if (pc.iceConnectionState === "failed" && !relayReady) log("Direct link failed and no relay server is available");
     if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") connected();
   });
 }
@@ -658,7 +677,7 @@ async function updateQuality() {
     const loss = recv ? (100 * lost) / (lost + recv) : 0;
     const q = (rtt != null && rtt > 0.4) || loss > 5 ? "poor" : (rtt != null && rtt > 0.2) || loss > 1 ? "OK" : "good";
     $("quality").textContent = "Call quality " + q + (rtt != null ? " · " + Math.round(rtt * 1000) + " ms delay" : "") + " · " + loss.toFixed(1) + "% lost" +
-      (type === "relay" ? " · relayed" : "") + ". This only affects the live call, not your recording.";
+      (type === "relay" ? " · via relay" : type ? " · direct" : "") + ". This only affects the live call, not your recording.";
   } catch (e) {}
 }
 
@@ -669,6 +688,7 @@ async function enterCall(mode, code) {
   $("hangupBtn").disabled = false; $("recBtn").disabled = true; show("savedCard", false);
   requestWakeLock();
   await ensureMic();
+  if (mode !== "solo") await loadIce();
   if (mode === "solo") {
     $("roomLabel").textContent = "Solo"; $("roomCode").textContent = "SOLO"; setStatus("Recording without a call.");
     show("friendCard", false); $("muteBtn").disabled = true; $("speakerBtn").disabled = true; $("recBtn").disabled = false;
@@ -816,6 +836,8 @@ $("keepAwake").onchange = () => {
   S.keepAwake = $("keepAwake").checked; saveSettings();
   if (!S.keepAwake && wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; } else if (inCall) requestWakeLock();
 };
+$("forceRelay").checked = S.forceRelay;
+$("forceRelay").onchange = () => { S.forceRelay = $("forceRelay").checked; saveSettings(); };
 $("autoLevel").checked = S.autoLevel;
 $("autoLevel").onchange = () => { S.autoLevel = $("autoLevel").checked; saveSettings(); };
 $("distance").innerHTML = DISTANCES.map((d) => '<option value="' + d + '">' + cmText(d) + "</option>").join("");
