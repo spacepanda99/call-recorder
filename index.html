@@ -72,7 +72,7 @@
   .code { background:linear-gradient(90deg, var(--accent), var(--violet), var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
   button.chip { width:auto; margin:0; padding:6px 12px; font-size:13px; border-radius:99px; background:rgba(123,97,255,.14); color:#CFC6FF; border:1px solid rgba(123,97,255,.55); }
   .eyebrow { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:28px 4px 8px; }
-  #homeView > .eyebrow:first-child { margin-top:14px; }
+  #homeView > .card:first-child { margin-top:16px; }
   .or { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; margin:18px 0 10px; }
   .or::before, .or::after { content:""; flex:1; height:1px; background:var(--line); }
   .tips { list-style:none; padding:0; margin:0; }
@@ -109,10 +109,8 @@
 
   <!-- HOME -->
   <section id="homeView">
-    <div class="eyebrow">Call</div>
     <div class="card">
-      <label for="myName" style="margin-top:0">Your name (goes in the file name)</label>
-      <input id="myName" maxlength="24" placeholder="e.g. Mike" autocomplete="given-name">
+      <input id="myName" maxlength="24" placeholder="Your name" aria-label="Your name" autocomplete="given-name">
       <button id="newRoomBtn">Start a new call</button>
       <div class="or"><span>or join a friend</span></div>
       <input id="codeInput" class="codein" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Friend's call code">
