@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 0 392 124" role="img" aria-label="GabLab">
+  <defs>
+    <linearGradient id="gl-grad" x1="8" y1="0" x2="372" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34F5C5"/>
+      <stop offset="0.5" stop-color="#7B61FF"/>
+      <stop offset="1" stop-color="#FF4FD8"/>
+    </linearGradient>
+    <filter id="gl-glow" x="-20%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+  <use href="#letters" filter="url(#gl-glow)" opacity="0.5"/>
+  <g id="letters" fill="none" stroke="url(#gl-grad)" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+    <!-- G: open ring with a sound wave for its bar -->
+    <path d="M70.3 44.8 A33 33 0 1 0 78 70"/>
+    <path d="M78 70 H75 q-3 -9 -6 0 t-6 0 t-6 0 t-6 0" stroke-width="6.5"/>
+    <!-- a -->
+    <circle cx="116" cy="82" r="19"/>
+    <path d="M135 63 V101"/>
+    <!-- b -->
+    <path d="M152 30 V101"/>
+    <circle cx="171" cy="82" r="19"/>
+    <!-- L: a test tube, foot curls up -->
+    <path d="M216 32 V93 a8 8 0 0 0 8 8 H248"/>
+    <!-- a -->
+    <circle cx="279" cy="82" r="19"/>
+    <path d="M298 63 V101"/>
+    <!-- b -->
+    <path d="M315 30 V101"/>
+    <circle cx="334" cy="82" r="19"/>
+  </g>
+  <!-- bubbles fizzing up out of the lab -->
+  <g fill="none" stroke="#FF4FD8" stroke-width="4">
+    <circle cx="352" cy="38" r="6"/>
+    <circle cx="366" cy="18" r="4"/>
+    <circle cx="343" cy="12" r="3"/>
+  </g>
+</svg>

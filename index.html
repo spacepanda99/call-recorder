@@ -3,21 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Call Recorder</title>
-<meta name="theme-color" content="#111418">
+<title>GabLab</title>
+<meta name="theme-color" content="#0E1022">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
-  :root { --bg:#111418; --card:#1c2128; --text:#e8eaed; --muted:#9aa3ad; --accent:#3ddc84; --warn:#ffd54f; --red:#ff5252; --line:#2d343d; --field:#0c0f12; }
+  :root { --bg:#0E1022; --card:#171A33; --text:#ECEBFF; --muted:#A3A6C8; --accent:#34F5C5; --violet:#7B61FF; --pink:#FF4FD8; --warn:#FFD166; --red:#FF5C7A; --line:#272B4D; --field:#0A0C1A; --raise:#232748; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:16px/1.45 system-ui, sans-serif; }
   main { max-width:480px; margin:0 auto; padding:16px 16px 48px; }
   h1 { font-size:20px; margin:4px 0 14px; }
   h2 { font-size:16px; margin:0 0 8px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:12px; }
-  button { width:100%; font:inherit; font-weight:600; padding:14px; border-radius:10px; border:0; background:var(--accent); color:#06210f; margin-top:8px; cursor:pointer; }
-  button.secondary { background:#2d343d; color:var(--text); }
+  button { width:100%; font:inherit; font-weight:600; padding:14px; border-radius:10px; border:0; background:linear-gradient(100deg, var(--accent), #5CE1E6); color:#06231B; margin-top:8px; cursor:pointer; }
+  button.secondary { background:var(--raise); color:var(--text); }
   button.danger { background:var(--red); color:#fff; }
   button.small { width:auto; padding:8px 12px; font-size:14px; margin:0; }
   button:disabled { opacity:.4; }
@@ -46,8 +46,8 @@
   .coach.good { border-color:var(--accent); } .coach.warn { border-color:var(--warn); } .coach.bad { border-color:var(--red); }
   .hidden { display:none !important; }
   #log { font-size:12px; color:var(--muted); white-space:pre-wrap; max-height:180px; overflow:auto; }
-  .pill { display:inline-block; padding:2px 8px; border-radius:99px; background:#2d343d; font-size:12px; }
-  .pill.on { background:var(--red); color:#fff; } .pill.ok { background:#1d4d33; color:#bff5d5; } .pill.bad { background:#5a1d1d; color:#ffc9c9; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:99px; background:var(--raise); font-size:12px; }
+  .pill.on { background:var(--red); color:#fff; } .pill.ok { background:#123F3A; color:#B8FFEA; } .pill.bad { background:#5a1d1d; color:#ffc9c9; }
   .hist { border-top:1px solid var(--line); padding:10px 0; }
   .hist:first-child { border-top:0; }
   .hist .name { font-weight:600; word-break:break-all; color:var(--text); }
@@ -61,7 +61,14 @@
 
   .top { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin:4px 0 6px; }
   .top h1 { margin:0; }
-  button.chip { width:auto; margin:0; padding:6px 12px; font-size:13px; border-radius:99px; background:transparent; color:var(--accent); border:1px solid #2f6b4a; }
+  #callView, #checkView { margin-top:16px; }
+  h1.brand { display:flex; flex-direction:column; gap:0; line-height:1; }
+  h1.brand img { display:block; height:48px; width:auto; margin-left:-6px; }
+  h1.brand span { font-size:12px; font-weight:500; letter-spacing:.04em; margin-top:2px; }
+  .eyebrow { color:#B4A8FF !important; }
+  .card { box-shadow:0 1px 0 rgba(255,255,255,.03) inset; }
+  .code { background:linear-gradient(90deg, var(--accent), var(--violet), var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  button.chip { width:auto; margin:0; padding:6px 12px; font-size:13px; border-radius:99px; background:rgba(123,97,255,.14); color:#CFC6FF; border:1px solid rgba(123,97,255,.55); }
   .eyebrow { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:28px 4px 8px; }
   #homeView > .eyebrow:first-child { margin-top:14px; }
   .or { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; margin:18px 0 10px; }
@@ -78,7 +85,7 @@
   .space-note { font-size:12px; color:var(--muted); line-height:1.4; }
   .hist .meta { font-size:13px; color:var(--muted); margin-top:2px; }
   .acts { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  .acts button { width:auto; margin:0; padding:6px 12px; font-size:13px; font-weight:600; border-radius:99px; background:#262c34; color:var(--text); }
+  .acts button { width:auto; margin:0; padding:6px 12px; font-size:13px; font-weight:600; border-radius:99px; background:var(--raise); color:var(--text); }
   .acts button.del { background:transparent; color:#ff8a8a; padding-left:6px; padding-right:6px; margin-left:auto; }
   .card.list { padding:0 16px; }
   .card.list details { border-top:1px solid var(--line); }
@@ -93,7 +100,7 @@
 <body>
 <main>
   <header class="top">
-    <h1>Call Recorder <span class="muted">48 kHz WAV</span></h1>
+    <h1 class="brand"><img src="brand/wordmark.svg" alt="GabLab" width="150" height="48"><span class="muted">48 kHz voice recorder</span></h1>
     <button id="installBtn" class="chip hidden" title="Install as an app">⤓ Install</button>
   </header>
   <div id="globalBanner" class="banner hidden"></div>

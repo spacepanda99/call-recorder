@@ -1,5 +1,5 @@
 "use strict";
-// Call Recorder: a live WebRTC call between two phones, while each phone records its own raw mic
+// GabLab: a live WebRTC call between two phones, while each phone records its own raw mic
 // to a 48 kHz / 16-bit mono WAV on its own disk. See README.md.
 
 const PREFIX = "boomirec-v1-";            // peer ids on the free PeerJS server: PREFIX + room code
@@ -187,7 +187,7 @@ async function renderStorage() {
   $("spaceCard").innerHTML =
     '<div class="space-top"><span><b>' + hm(sp.free) + "</b> of recording space left</span><span>" + gb(sp.free) + " free</span></div>" +
     '<div class="usage" title="Used by this app vs. free"><i style="width:' + pctOf(used) + '%;background:var(--accent)"></i><i style="width:' +
-    pctOf(Math.max(0, sp.usage - used)) + '%;background:#3a4350"></i></div>' +
+    pctOf(Math.max(0, sp.usage - used)) + '%;background:#3A3F6B"></i></div>' +
     '<div class="space-note">' + (history.length ? gb(used) + " in " + history.length + " recording" + (history.length === 1 ? "" : "s") + " · " : "") +
     "346 MB per hour" + (low ? ' · <span style="color:var(--warn)">Low on space. Free some up before a long call.</span>' : "") +
     "<br>After uploading to Boomie, delete recordings here to get the space back. Downloads are a second copy.</div>";
