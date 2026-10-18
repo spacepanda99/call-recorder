@@ -45,7 +45,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("callrec." + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("callrec." + k, JSON.stringify(v)); } catch (e) {} },
 };
-const S = Object.assign({ name: "", tpl: "{date}_{time}_{me}_with_{friend}", afterSave: "download", autoLevel: true, keepAwake: true, speakerOff: false, forceRelay: false, micId: "", distance: 20, micGainDb: 0, micMode: "raw" }, store.get("settings", {}));
+const S = Object.assign({ name: "", tpl: "{date}_{time}_{me}_with_{friend}", afterSave: "download", autoLevel: true, keepAwake: true, speakerOff: false, forceRelay: false, micId: "", distance: 20, micGainDb: 0, micMode: "raw", phoneMic: true }, store.get("settings", {}));
 const saveSettings = () => store.set("settings", S);
 let history = store.get("history", []);
 const saveHistory = () => store.set("history", history);
@@ -311,6 +311,24 @@ async function ensureMic() {
     delete audio.deviceId; log("Chosen mic not found, using the default");
     micStream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
   }
+  // With Bluetooth earbuds connected, Android hands web pages the earbuds' call mic, which is
+  // low quality (8-16 kHz) and overloads easily, and it may still be labelled "Default".
+  // Unless the user picked a mic, switch to the phone's own mic whenever an external one exists.
+  if (!S.micId && S.phoneMic) {
+    try {
+      const cur = micStream.getAudioTracks()[0];
+      const isExt = (l) => /bluetooth|hands-?free|headset|\bbt\b|sco|airpods|buds|earpiece|usb/i.test(l || "");
+      const devs = (await navigator.mediaDevices.enumerateDevices())
+        .filter((d) => d.kind === "audioinput" && d.deviceId && !/^(default|communications)$/.test(d.deviceId));
+      const builtin = devs.find((d) => !isExt(d.label) && /speaker|built|internal|bottom|phone|mic/i.test(d.label)) || devs.find((d) => !isExt(d.label));
+      const curId = cur.getSettings().deviceId;
+      if ((devs.some((d) => isExt(d.label)) || isExt(cur.label)) && builtin && builtin.deviceId !== curId) {
+        micStream.getTracks().forEach((x) => x.stop());
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: { ...audio, deviceId: { exact: builtin.deviceId } }, video: false });
+        log("Bluetooth/headset mic found; using the phone's own mic instead (" + (builtin.label || "built-in") + ")");
+      }
+    } catch (e) { log("Couldn't switch to the phone's own mic: " + e.message); }
+  }
   const t = micStream.getAudioTracks()[0], s = t.getSettings();
   micInfo = { label: t.label || "default mic", rate: s.sampleRate || 0, bt: /bluetooth|hands-?free|headset|airpods|buds|\bbt\b|sco/i.test(t.label || "") };
   log("Mic: " + micInfo.label + " | rate " + (s.sampleRate || "?") + " | echoCancel " + s.echoCancellation + " | noiseSup " + s.noiseSuppression + " | AGC " + s.autoGainControl);
@@ -341,7 +359,8 @@ async function ensureMic() {
   sendStream.getAudioTracks()[0].enabled = !muted;
   log("Audio engine at " + ctx.sampleRate + " Hz");
   listMics();
-  if (micInfo.bt) banner("A Bluetooth mic is in use (" + esc(micInfo.label) + "). Bluetooth call mics are low quality. Use wired earphones, or pick the phone's own mic under More › Microphone &amp; distance.");
+  const lowRate = micInfo.rate && micInfo.rate < 32000;
+  if (micInfo.bt || lowRate) banner("This looks like a Bluetooth call mic (" + esc(micInfo.label) + (micInfo.rate ? ", " + micInfo.rate + " Hz" : "") + "). Those are low quality and overload easily. Turn Bluetooth off, or pick the phone's own mic under More › Microphone &amp; distance.");
 }
 function releaseMic() {
   if (recording || inCall) return;
@@ -904,6 +923,8 @@ $("distance").value = String(S.distance);
 $("distance").onchange = () => { S.distance = +$("distance").value; saveSettings(); };
 document.querySelectorAll(".gain-slider").forEach((el) => { el.oninput = () => setGain(+el.value); });
 setGain(S.micGainDb);
+$("phoneMic").checked = S.phoneMic;
+$("phoneMic").onchange = () => { S.phoneMic = $("phoneMic").checked; saveSettings(); releaseMic(); };
 $("micMode").value = S.micMode;
 $("micMode").onchange = () => { S.micMode = $("micMode").value; saveSettings(); releaseMic(); log("Microphone mode: " + S.micMode + " (used from the next check or call)"); };
 $("micSelect").onchange = () => { S.micId = $("micSelect").value; saveSettings(); releaseMic(); log("Mic choice saved; it's used from the next check or call"); };
