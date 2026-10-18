@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GabLab</title>
-<meta name="app-version" content="1.8.3">
+<meta name="app-version" content="1.8.4">
 <meta name="theme-color" content="#0E1022">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -126,6 +126,8 @@
   details.ready > summary::after { content:"›"; color:#B4A8FF; font-size:22px; line-height:1; transition:transform .2s; }
   details.ready[open] > summary::after { transform:rotate(90deg); }
   details.ready .ready-body { padding-bottom:16px; }
+  .check.keep { margin:10px 0 0; font-size:14px; color:var(--muted); }
+  input[type=checkbox] { accent-color:var(--accent); }
 </style>
 </head>
 <body>
@@ -142,6 +144,7 @@
     <div class="card">
       <input id="myName" maxlength="24" placeholder="Your name" aria-label="Your name" autocomplete="given-name">
       <button id="newRoomBtn">Start a new call</button>
+      <label class="check keep"><input type="checkbox" id="keepAwake" checked>Keep the screen on during the call</label>
       <div class="or"><span>or join a friend</span></div>
       <input id="codeInput" class="codein" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="Friend's call code">
       <button id="joinBtn" class="secondary">Join call</button>
@@ -193,7 +196,6 @@
           <div class="muted" id="folderInfo">No folder chosen.</div>
         </div>
         <div class="muted" id="noFolderNote" style="margin-top:6px">Android Chrome can't pick folders from a web page. To choose where each file goes, turn on Chrome ⋮ › Settings › Downloads › <b>Ask where to download files</b>, or pick <b>Share</b> to save to Google Drive or the Files app.</div>
-        <label class="check" style="margin-top:12px"><input type="checkbox" id="keepAwake" checked>Keep the screen on during a call (safest)</label>
         <label class="check" style="margin-top:8px"><input type="checkbox" id="autoLevel" checked>Auto-level on save (raise quiet files to a −3 dB peak; never lowers or clips)</label>
         </div>
       </details>
@@ -285,11 +287,11 @@
     <button id="hangupBtn" class="secondary">Hang up</button>
     <div class="card" style="margin-top:12px"><details><summary class="muted">Details</summary><div id="log"></div></details></div>
   </section>
-  <footer id="ver" class="ver">GabLab v1.8.3</footer>
+  <footer id="ver" class="ver">GabLab v1.8.4</footer>
 </main>
 <div id="countdown" class="countdown hidden"></div>
 <audio id="remoteAudio" autoplay playsinline></audio>
 <script src="peerjs.min.js"></script>
-<script src="app.js?v=1.8.3"></script>
+<script src="app.js?v=1.8.4"></script>
 </body>
 </html>
