@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "1.8.5";
+const VERSION = "1.9.0";
 // If the page and this script come from different releases (a phone cached one of them),
 // reload once to pull matching files.
 (() => {
@@ -45,7 +45,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("callrec." + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem("callrec." + k, JSON.stringify(v)); } catch (e) {} },
 };
-const S = Object.assign({ name: "", tpl: "{date}_{time}_{me}_with_{friend}", afterSave: "download", autoLevel: true, keepAwake: true, speakerOff: false, forceRelay: false, micId: "", distance: 20 }, store.get("settings", {}));
+const S = Object.assign({ name: "", tpl: "{date}_{time}_{me}_with_{friend}", afterSave: "download", autoLevel: true, keepAwake: true, speakerOff: false, forceRelay: false, micId: "", distance: 20, micGainDb: 0, micMode: "raw" }, store.get("settings", {}));
 const saveSettings = () => store.set("settings", S);
 let history = store.get("history", []);
 const saveHistory = () => store.set("history", history);
@@ -246,10 +246,11 @@ const WORKLET = `
 class Tap extends AudioWorkletProcessor {
   constructor() {
     super();
-    this.out = null; this.rec = false; this.buf = new Int16Array(48000); this.n = 0; this.frames = 0; this.peak = 0; this.lastStat = 0;
+    this.gain = 1; this.out = null; this.rec = false; this.buf = new Int16Array(48000); this.n = 0; this.frames = 0; this.peak = 0; this.lastStat = 0;
     this.port.onmessage = (e) => {
       const m = e.data;
       if (m.port) this.out = m.port;
+      if (m.gain !== undefined) this.gain = m.gain;
       if (m.cmd === "start") { this.rec = true; this.n = 0; this.frames = 0; this.peak = 0; this.lastStat = 0; }
       if (m.cmd === "stop") {
         if (this.rec) { this.rec = false; this.flush(); }
@@ -265,27 +266,43 @@ class Tap extends AudioWorkletProcessor {
   process(inputs) {
     const ch = inputs[0] && inputs[0][0];
     if (!ch) return true;
-    this.port.postMessage(ch.slice(0));
+    // Mic level slider: scale the samples. Count samples already at full scale before scaling:
+    // those clipped inside the phone, and turning the level down can't repair them.
+    const g = this.gain, out = new Float32Array(ch.length);
+    let raw = 0;
+    for (let i = 0; i < ch.length; i++) { const x = ch[i]; if (x >= 0.999 || x <= -0.999) raw++; out[i] = x * g; }
+    if (raw) this.port.postMessage({ rawClip: raw });
     if (this.rec) {
-      for (let i = 0; i < ch.length; i++) {
-        let v = ch[i]; const a = v < 0 ? -v : v; if (a > this.peak) this.peak = a;
+      for (let i = 0; i < out.length; i++) {
+        let v = out[i]; const a = v < 0 ? -v : v; if (a > this.peak) this.peak = a;
         v = v > 1 ? 1 : v < -1 ? -1 : v;
         this.buf[this.n++] = v < 0 ? v * 0x8000 : v * 0x7fff;
         if (this.n === this.buf.length) this.flush();
       }
-      this.frames += ch.length;
+      this.frames += out.length;
       if (this.frames - this.lastStat >= 4800) { this.lastStat = this.frames; this.port.postMessage({ stat: true, frames: this.frames, peak: this.peak }); }
     }
+    this.port.postMessage(out, [out.buffer]);
     return true;
   }
 }
 registerProcessor("tap", Tap);`;
 let tap = null, direct = false, finalStat = null;
+let rawClipUntil = 0, rawClipSamples = 0;
+const gainOf = (db) => Math.pow(10, db / 20);
+function sendGain() { if (tap) tap.port.postMessage({ gain: gainOf(S.micGainDb) }); }
+function setGain(db) {
+  S.micGainDb = Math.max(-24, Math.min(12, Math.round(db))); saveSettings(); sendGain();
+  document.querySelectorAll(".gain-slider").forEach((el) => { el.value = S.micGainDb; });
+  document.querySelectorAll(".gain-val").forEach((el) => { el.textContent = (S.micGainDb > 0 ? "+" : "") + S.micGainDb + " dB"; });
+  if (recording) log("Mic level changed to " + S.micGainDb + " dB during recording");
+}
 let ctx = null, micStream = null, sendStream = null, micInfo = { label: "", rate: 0, bt: false };
 
 async function ensureMic() {
   if (micStream && micStream.active && ctx && ctx.state !== "closed") { if (ctx.state !== "running") await ctx.resume(); return; }
-  const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1, sampleRate: RATE };
+  const voice = S.micMode === "voice";
+  const audio = { echoCancellation: false, noiseSuppression: voice, autoGainControl: voice, channelCount: 1, sampleRate: RATE };
   if (S.micId) audio.deviceId = { exact: S.micId };
   try { micStream = await navigator.mediaDevices.getUserMedia({ audio, video: false }); }
   catch (e) {
@@ -306,10 +323,13 @@ async function ensureMic() {
   src.connect(tap).connect(silent).connect(ctx.destination);
   tap.port.onmessage = (e) => {
     const d = e.data;
-    if (!d.stat) { onAudio(d); return; }
+    if (d instanceof Float32Array) { onAudio(d); return; }
+    if (d.rawClip) { rawClipUntil = performance.now() + 3000; rawClipSamples += d.rawClip; return; }
+    if (!d.stat) return;
     if (direct) { recFrames = d.frames; recPeak = d.peak; }
     if (d.final && finalStat) { finalStat(d); finalStat = null; }
   };
+  sendGain();
   if (opfs) {                                                  // wire the worklet straight to the disk worker
     const ch = new MessageChannel();
     worker.postMessage({ op: "port", port: ch.port1 }, [ch.port1]);
@@ -394,9 +414,13 @@ function analyse(list) {
 function coachAdvice() {
   const a = analyse(wins);
   if (!a) return { cls: "", text: "Listening…" };
+  if (performance.now() < rawClipUntil) {
+    const far = cmText(Math.min(45, Math.max(S.distance * 2, 25)));
+    return { cls: "bad", text: "The phone's mic itself is overloading, before the Mic level slider, so turning the slider down won't fix it. Move the phone back to about " + far + " or speak softer" +
+      (S.micMode === "voice" ? "." : ", or switch Microphone mode to \"Phone auto-level\" (More › Microphone & distance).") };
+  }
   if (wins.slice(-100).some((w) => w.p >= 0.99)) {
-    const d = distanceFor(0, S.distance);
-    return { cls: "bad", text: "Too loud: it's clipping. Move the phone back, to about " + cmText(Math.max(d.cm, S.distance + 5)) + ", or speak a little softer." };
+    return { cls: "bad", text: "Too loud: it's clipping. Turn the Mic level slider down about 6 dB (now " + S.micGainDb + " dB)." };
   }
   if (a.speechSecs < 1.5) {
     return a.noiseDb > -45 ? { cls: "warn", text: "Background noise is high (" + a.noiseDb.toFixed(0) + " dB). Turn off fans or AC, or find a quieter room." }
@@ -404,9 +428,11 @@ function coachAdvice() {
   }
   let tip;
   const d = distanceFor(a.loudDb, S.distance);
-  if (a.loudDb < -18) tip = { cls: "bad", text: "Too quiet. Bring the phone closer, to about " + cmText(d.cm) + (d.tooFar ? ", and speak up a little" : "") + "." };
-  else if (a.loudDb < -9) tip = { cls: "warn", text: "A bit quiet. Move the phone closer, to about " + cmText(d.cm) + "." };
-  else if (a.loudDb > -1.5) tip = { cls: "warn", text: "Almost too loud. Move the phone back a little, to about " + cmText(d.cm) + "." };
+  const up = Math.min(12 - S.micGainDb, Math.round(TARGET_PEAK_DB - a.loudDb));
+  const raise = up >= 3 ? " Or raise the Mic level slider about " + up + " dB." : "";
+  if (a.loudDb < -18) tip = { cls: "bad", text: "Too quiet. Bring the phone closer, to about " + cmText(d.cm) + (d.tooFar ? ", and speak up a little" : "") + "." + raise };
+  else if (a.loudDb < -9) tip = { cls: "warn", text: "A bit quiet. Move the phone closer, to about " + cmText(d.cm) + "." + raise };
+  else if (a.loudDb > -1.5) tip = { cls: "warn", text: "Almost too loud. Turn the Mic level slider down about 3 dB, or move the phone back a little." };
   else tip = { cls: "good", text: "Good distance. Loud words reach " + a.loudDb.toFixed(0) + " dB." };
   if (a.snr < 25) tip.text += " Background noise is noticeable (" + a.noiseDb.toFixed(0) + " dB); turn off fans or AC if you can.";
   return tip;
@@ -424,14 +450,14 @@ async function runCheck() {
   $("checkStartBtn").disabled = true; show("checkResult", false);
   try { await ensureMic(); } catch (e) { $("checkStep").textContent = "Couldn't open the mic: " + e.message; $("checkStartBtn").disabled = false; return; }
   const wait = (t) => new Promise((r) => setTimeout(r, t));
-  checkSink = [];
+  checkSink = []; const rawAtStart = rawClipSamples;
   $("checkStep").innerHTML = "<b>Step 1 of 2:</b> stay quiet for 3 seconds (measuring room noise)…";
   await wait(3000);
   const quiet = checkSink; checkSink = [];
   $("checkStep").innerHTML = "<b>Step 2 of 2:</b> read this out loud at your normal talking volume:";
   show("checkSentence", true);
   await wait(7000);
-  const talk = checkSink; checkSink = null;
+  const talk = checkSink; checkSink = null; const checkRawClips = rawClipSamples - rawAtStart;
   show("checkSentence", false);
   const qr = quiet.map((w) => w.r).sort((a, b) => a - b);
   const noiseDb = dbOf(qr[Math.floor(qr.length / 2)] || 0);
@@ -440,6 +466,7 @@ async function runCheck() {
   const rows = [];
   const verdict = (ok, txt) => '<span class="pill ' + (ok === true ? "ok" : ok === false ? "bad" : "") + '">' + txt + "</span>";
   rows.push(["Mic", esc(micInfo.label) + (micInfo.bt ? " " + verdict(false, "Bluetooth: low quality") : "")]);
+  rows.push(["Mic level", (S.micGainDb > 0 ? "+" : "") + S.micGainDb + " dB · mode: " + (S.micMode === "voice" ? "phone auto-level" : "raw")]);
   rows.push(["Recording format", "48,000 Hz, 16-bit mono WAV" + (micInfo.rate && micInfo.rate < 44100 ? " " + verdict(false, "mic only gives " + micInfo.rate + " Hz") : "")]);
   rows.push(["Room noise", noiseDb.toFixed(0) + " dB " + (noiseDb < -60 ? verdict(true, "very quiet") : noiseDb < -50 ? verdict(true, "quiet") : noiseDb < -40 ? verdict(null, "noticeable") : verdict(false, "noisy"))]);
   let advice, rec = null;
@@ -455,6 +482,7 @@ async function runCheck() {
       : "You're at about " + cmText(S.distance) + ". Best for your voice: about <b>" + cmText(d.cm) + "</b>" + (d.tooFar ? ", and speak up a little" : "") + ".";
     if (snr < 25) advice += " The room is noisy for your voice level: turn off fans or AC, close windows, or move closer to the phone.";
   }
+  if (checkRawClips > 0) advice += " <b>The phone's mic itself overloaded</b> during the check. The Mic level slider can't fix that: move the phone farther away or speak softer" + (S.micMode === "voice" ? "." : ", or try Microphone mode \"Phone auto-level\".");
   if (micInfo.bt) advice += " Switch to wired earphones or the phone's own mic. Bluetooth mics record at low quality.";
   $("checkResult").innerHTML = '<table class="result">' + rows.map((r) => "<tr><td>" + r[0] + "</td><td>" + r[1] + "</td></tr>").join("") + "</table>" +
     '<div class="coach ' + (rec && Math.abs(rec - S.distance) <= 2 && snr >= 25 ? "good" : "warn") + '">' + advice + "</div>" +
@@ -511,7 +539,7 @@ async function stopRecording(tellFriend) {
     }
   } catch (err) { log("Error finishing file: " + err.message); }
   e.secs = (e.bytes || 0) / (RATE * 2);
-  e.gainDb = dbOf(gain); e.peakDb = dbOf(recPeak * gain);
+  e.gainDb = dbOf(gain); e.peakDb = dbOf(Math.min(1, recPeak * gain));
   e.friend = e.friend || friend.name; e.status = "done";
   e.exportName = buildName(e);
   saveHistory(); renderHistory();
@@ -748,7 +776,7 @@ function uiTick() {
   $("clip").className = "pill" + (hot ? " bad" : db > -9 ? " ok" : "");
   if (recording) {
     $("timer").textContent = hms(recFrames / RATE);
-    $("recState").innerHTML = '<span class="rec-dot"></span>Recording · loudest ' + dbOf(recPeak).toFixed(1) + " dB";
+    $("recState").innerHTML = '<span class="rec-dot"></span>Recording · loudest ' + dbOf(Math.min(1, recPeak)).toFixed(1) + " dB";
   }
   if (inCall && role !== "solo") {
     const fresh = friend.seen && Date.now() - friend.seen < 5000;
@@ -852,6 +880,10 @@ $("autoLevel").onchange = () => { S.autoLevel = $("autoLevel").checked; saveSett
 $("distance").innerHTML = DISTANCES.map((d) => '<option value="' + d + '">' + cmText(d) + "</option>").join("");
 $("distance").value = String(S.distance);
 $("distance").onchange = () => { S.distance = +$("distance").value; saveSettings(); };
+document.querySelectorAll(".gain-slider").forEach((el) => { el.oninput = () => setGain(+el.value); });
+setGain(S.micGainDb);
+$("micMode").value = S.micMode;
+$("micMode").onchange = () => { S.micMode = $("micMode").value; saveSettings(); releaseMic(); log("Microphone mode: " + S.micMode + " (used from the next check or call)"); };
 $("micSelect").onchange = () => { S.micId = $("micSelect").value; saveSettings(); releaseMic(); log("Mic choice saved; it's used from the next check or call"); };
 preview();
 

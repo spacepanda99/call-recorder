@@ -22,6 +22,7 @@ Try **Record solo** to see the recording screen without a friend.
 - **History:** every recording stays under Recordings until you delete it, with Play, Download, Share, Rename and Delete. You can also see how much storage is left.
 - **File names:** a pattern you set, by default `{date}_{time}_{me}_with_{friend}`, e.g. `2026-10-17_14-05-33_Mike_with_Alex.wav`.
 - **Where files go:** Downloads, the Share menu (Google Drive, Files app, email), a folder you pick (desktop Chrome only), or only in the app. Android Chrome doesn't let web pages pick folders. To choose a folder each time, turn on Chrome ⋮ › Settings › Downloads › "Ask where to download files".
+- **Mic level slider** (−24 to +12 dB, on the call screen and in the mic check): scales the audio before it is saved. If the phone's mic itself overloads (clipping before the slider), the coach says so, because turning the level down can't repair that. Move back, speak softer, or set Microphone mode to "Phone auto-level".
 - **Auto-level** (on by default): after recording, it raises a quiet file so its loudest peak is −3 dB. It applies the same gain to the whole file, never lowers or clips, and adds at most 20 dB.
 - **Dropped calls:** if the call drops, recording keeps going and the joining phone reconnects by itself. If the friend's phone stopped recording, it restarts it.
 - **Other:** mute (affects the live call only, not your recording), call quality (delay and packet loss), screen kept awake, low-battery warning.

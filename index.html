@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GabLab</title>
-<meta name="app-version" content="1.8.5">
+<meta name="app-version" content="1.9.0">
 <meta name="theme-color" content="#0E1022">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -128,6 +128,10 @@
   details.ready .ready-body { padding-bottom:16px; }
   .check.keep { margin:10px 0 0; font-size:14px; color:var(--muted); }
   input[type=checkbox] { accent-color:var(--accent); }
+  .gainrow { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:12px 0 2px; font-size:14px; color:var(--muted); }
+  .gainrow label { margin:0; color:var(--muted); font-size:14px; }
+  .gainrow input[type=range] { flex:1; min-width:120px; accent-color:var(--accent); padding:0; border:0; background:transparent; }
+  .gainrow .gain-val { min-width:48px; text-align:right; color:var(--text); font-variant-numeric:tabular-nums; }
 </style>
 </head>
 <body>
@@ -204,6 +208,12 @@
         <div class="dbody">
         <label for="micSelect" style="margin-top:0">Microphone</label>
         <select id="micSelect"><option value="">Phone default</option></select>
+        <label for="micMode">Microphone mode</label>
+        <select id="micMode">
+          <option value="raw">Raw (best quality, no processing)</option>
+          <option value="voice">Phone auto-level (helps if the mic overloads)</option>
+        </select>
+        <div class="muted" style="margin-top:4px">If the mic check says the phone's mic itself is overloading, try Phone auto-level. It keeps the level steady and lowers background noise, but the sound is slightly processed.</div>
         <div class="muted" style="margin-top:4px">Pick the phone's own mic if earbuds take over. The list fills in after the first mic check or call.</div>
         <label for="distance">How far the phone usually is from your mouth</label>
         <select id="distance"></select>
@@ -242,6 +252,7 @@
       <div id="checkSentence" class="readme hidden">“The quick brown fox jumps over the lazy dog. Peter Piper picked a peck of pickled peppers, and that's a fact.”</div>
       <div class="meter" style="margin-top:12px"><div class="zone"></div><div class="bar" id="checkBar"></div></div>
       <div class="scale"><span style="left:0%;transform:none">−60</span><span style="left:50%">−30</span><span style="left:80%">−12</span><span style="left:90%">−6</span><span style="left:100%;transform:translateX(-100%)">0</span></div>
+      <div class="gainrow"><label for="gainSlider2">Mic level</label><input type="range" class="gain-slider" id="gainSlider2" min="-24" max="12" step="1" value="0"><span class="gain-val">0 dB</span></div>
       <div id="checkResult" class="hidden"></div>
       <button id="checkStartBtn">Start (takes 10 s)</button>
       <button id="checkDoneBtn" class="secondary">Back</button>
@@ -266,6 +277,7 @@
       <div class="row"><span>Your mic <span class="muted" id="micLabel"></span></span><span class="pill" id="clip">level</span></div>
       <div class="meter" style="margin-top:6px"><div class="zone"></div><div class="bar" id="meterBar"></div></div>
       <div class="scale"><span style="left:0%;transform:none">−60</span><span style="left:50%">−30</span><span style="left:80%">−12</span><span style="left:90%">−6</span><span style="left:100%;transform:translateX(-100%)">0</span></div>
+      <div class="gainrow"><label for="gainSlider">Mic level</label><input type="range" class="gain-slider" id="gainSlider" min="-24" max="12" step="1" value="0"><span class="gain-val">0 dB</span></div>
       <div class="timer" id="timer">00:00:00</div>
       <div class="muted center" id="recState">Not recording</div>
       <div class="muted center" id="spaceInfo"></div>
@@ -287,11 +299,11 @@
     <button id="hangupBtn" class="secondary">Hang up</button>
     <div class="card" style="margin-top:12px"><details><summary class="muted">Details</summary><div id="log"></div></details></div>
   </section>
-  <footer id="ver" class="ver">GabLab v1.8.5</footer>
+  <footer id="ver" class="ver">GabLab v1.9.0</footer>
 </main>
 <div id="countdown" class="countdown hidden"></div>
 <audio id="remoteAudio" autoplay playsinline></audio>
 <script src="peerjs.min.js"></script>
-<script src="app.js?v=1.8.5"></script>
+<script src="app.js?v=1.9.0"></script>
 </body>
 </html>
