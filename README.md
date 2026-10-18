@@ -33,6 +33,12 @@ Try **Record solo** to see the recording screen without a friend.
 - If less than 30 min of space is left, the app asks before it starts recording. It warns when about 10 min are left, and it stops and saves when space runs out (about 4 min left), so the file is never cut off half-written.
 - Downloading or sharing makes a second copy. After uploading, delete the recording in the app to free space.
 
+## Leaving the app while recording
+Recording keeps running if you switch to another app: Chrome keeps the mic open and audio goes straight to storage. Tested: about 9 s with the page hidden, nothing lost. While recording:
+- A notification in the pull-down shade and on the lock screen shows "GabLab is recording" with the elapsed time. Tap it to come back. Its pause button does nothing, so it can't stop the recording by accident.
+- **Mini floating timer** (call screen) opens a small picture-in-picture window that floats over other apps, if the phone supports it.
+- A red bar across the top of the app shows the timer and your friend's status. Tap it to jump back to the controls.
+
 ## Screen off and installing as an app
 - **Timer:** the big HH:MM:SS clock on the call screen counts recorded time, and the friend card shows the other phone's timer.
 - **Screen off:** audio goes from the audio thread straight to the disk writer, so a slow or paused page doesn't drop audio. (Tested by freezing the page for 4 s: no audio was lost.) Android Chrome normally keeps a live call and mic running with the screen off. Android can still pause Chrome to save battery, though, and that hasn't been tried on your phones. Do a 2-minute screen-off test first. **Keep the screen on** (in settings) is on by default and is the safest choice; turn the brightness down. Set Chrome's battery use to Unrestricted (Settings › Apps › Chrome › Battery).

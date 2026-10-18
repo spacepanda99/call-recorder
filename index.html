@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GabLab</title>
-<meta name="app-version" content="1.9.1">
+<meta name="app-version" content="1.10.0">
 <meta name="theme-color" content="#0E1022">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -135,6 +135,12 @@
   .diag { font:12px/1.5 ui-monospace, Menlo, Consolas, monospace; color:var(--muted); background:var(--field); border-radius:8px; padding:6px 10px; margin-top:10px; white-space:pre-wrap; }
   .diag b { color:var(--text); font-weight:600; }
   .diag .bad { color:var(--red); font-weight:700; }
+  .rec-dock { position:fixed; top:0; left:0; right:0; z-index:20; width:auto; margin:0; border-radius:0 0 14px 14px; padding:10px 16px calc(10px + env(safe-area-inset-top,0px)) ; padding-top:calc(10px + env(safe-area-inset-top,0px));
+    display:flex; flex-wrap:wrap; align-items:center; gap:10px; background:linear-gradient(90deg, #3a1024, #2a1640); color:#fff; font-size:14px; font-weight:500; box-shadow:0 6px 20px rgba(0,0,0,.45); border-bottom:1px solid rgba(255,92,122,.5); }
+  .rec-dock b { font-variant-numeric:tabular-nums; font-size:16px; }
+  .rec-dock #dockFriend { margin-left:auto; color:#FFB3C1; font-size:13px; }
+  .rec-dock .rec-dot { margin-right:0; }
+  body.docked main { padding-top:60px; }
 </style>
 </head>
 <body>
@@ -297,6 +303,7 @@
         <button id="markBtn" class="secondary" disabled>Mark moment</button>
         <button id="callCheckBtn" class="secondary">Mic check</button>
       </div>
+      <button id="pipBtn" class="secondary hidden">Mini floating timer (shows over other apps)</button>
       <div class="muted center hidden" id="speakerNote" style="margin-top:6px">Speaker off: you won't hear your friend. Your mic and recording are unchanged.</div>
       <div class="muted" id="markList"></div>
     </div>
@@ -306,11 +313,12 @@
     <button id="hangupBtn" class="danger">Hang up</button>
     <div class="card" style="margin-top:12px"><details><summary class="muted">Details</summary><div id="log"></div></details></div>
   </section>
-  <footer id="ver" class="ver">GabLab v1.9.1</footer>
+  <footer id="ver" class="ver">GabLab v1.10.0</footer>
 </main>
 <div id="countdown" class="countdown hidden"></div>
+<button id="recDock" class="rec-dock hidden" aria-label="Recording. Tap to go to the recording controls"><span class="rec-dot"></span><b id="dockTime">00:00:00</b><span>Recording</span><span id="dockFriend"></span></button>
 <audio id="remoteAudio" autoplay playsinline></audio>
 <script src="peerjs.min.js"></script>
-<script src="app.js?v=1.9.1"></script>
+<script src="app.js?v=1.10.0"></script>
 </body>
 </html>

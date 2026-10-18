@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "1.9.1";
+const VERSION = "1.10.0";
 // If the page and this script come from different releases (a phone cached one of them),
 // reload once to pull matching files.
 (() => {
@@ -538,10 +538,12 @@ async function startRecording() {
   $("recBtn").classList.add("hidden"); show("stopBtn", true); $("markBtn").disabled = false; $("callCheckBtn").disabled = true;
   $("markList").textContent = ""; show("savedCard", false);
   log("Recording started");
+  dockStart();
 }
 async function stopRecording(tellFriend) {
   if (!recording) return;
   recording = false;
+  dockStop();
   if (direct) {
     await Promise.race([new Promise((r) => { finalStat = r; tap.port.postMessage({ cmd: "stop" }); }), new Promise((r) => setTimeout(r, 2000))]);
     direct = false;
@@ -793,6 +795,10 @@ async function hangUp() {
 // ---------- screen UI loop ----------
 let lastTip = { cls: "", text: "" };
 function uiTick() {
+  if (recording) {
+    $("dockTime").textContent = hms(recFrames / RATE);
+    $("dockFriend").textContent = inCall && role !== "solo" && friend.name ? (friend.rec ? friend.name + " recording" : friend.name + " NOT recording") : "";
+  }
   const db = dbOf(peakHold), hot = performance.now() < clipUntil;
   for (const id of ["meterBar", "checkBar"]) { $(id).style.width = pct(db) + "%"; $(id).classList.toggle("hot", hot); }
   $("clip").textContent = hot ? "CLIPPING" : db > -90 ? Math.round(db) + " dB" : "silent";
@@ -840,6 +846,83 @@ function micDiag() {
     " · " + (st.sampleRate || "?") + " Hz" + (inCall && role !== "solo" ? " · speaker " + (S.speakerOff ? "off" : "on") : "");
 }
 setInterval(() => { const t = micDiag(); $("diag").innerHTML = t; $("diag2").innerHTML = t; show("diag", !!t); show("diag2", !!t); }, 1000);
+
+// ---------- "still recording" dock: notification, floating timer, in-app bar ----------
+// A web page can't draw over other apps, so while recording we (1) run a silent media session so
+// Android shows a GabLab notification with the elapsed time ticking (tap it to come back), and
+// (2) offer a picture-in-picture mini window that floats over other apps.
+let dockAudio = null, recStartedAt = 0, pipVideo = null, pipCanvas = null, pipTimer = null;
+function silentWavUrl() {
+  const n = 80000, b = new DataView(new ArrayBuffer(44 + n * 2));
+  const w = (o, t) => { for (let i = 0; i < 4; i++) b.setUint8(o + i, t.charCodeAt(i)); };
+  w(0, "RIFF"); b.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); b.setUint32(16, 16, true); b.setUint16(20, 1, true); b.setUint16(22, 1, true);
+  b.setUint32(24, 8000, true); b.setUint32(28, 16000, true); b.setUint16(32, 2, true); b.setUint16(34, 16, true); w(36, "data"); b.setUint32(40, n * 2, true);
+  return URL.createObjectURL(new Blob([b.buffer], { type: "audio/wav" }));
+}
+function dockStart() {
+  recStartedAt = Date.now();
+  show("recDock", true); document.body.classList.add("docked");
+  try {
+    if (!dockAudio) { dockAudio = new Audio(silentWavUrl()); dockAudio.loop = true; dockAudio.volume = 0.01; }
+    dockAudio.play().catch(() => {});
+    if ("mediaSession" in navigator) {
+      const ms = navigator.mediaSession;
+      ms.metadata = new MediaMetadata({
+        title: "GabLab is recording",
+        artist: (friend.name ? "Call with " + friend.name : "Solo recording") + " · tap to return",
+        album: "Started " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+        artwork: [{ src: "icon-192.png", sizes: "192x192", type: "image/png" }, { src: "icon-512.png", sizes: "512x512", type: "image/png" }],
+      });
+      ms.playbackState = "playing";
+      try { ms.setPositionState({ duration: 24 * 3600, playbackRate: 1, position: 0 }); } catch (e) {}
+      // The notification's pause button must not stop anything: recording only stops in the app.
+      for (const a of ["play", "pause", "stop", "seekbackward", "seekforward", "seekto", "previoustrack", "nexttrack"]) {
+        try { ms.setActionHandler(a, a === "play" || a === "pause" ? () => { dockAudio && dockAudio.play().catch(() => {}); ms.playbackState = "playing"; } : null); } catch (e) {}
+      }
+    }
+  } catch (e) { log("Recording notification unavailable: " + e.message); }
+}
+function dockStop() {
+  show("recDock", false); document.body.classList.remove("docked");
+  try { dockAudio && dockAudio.pause(); } catch (e) {}
+  try { if ("mediaSession" in navigator) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = "none"; } } catch (e) {}
+  closePip();
+}
+function drawPip() {
+  if (!pipCanvas) return;
+  const c = pipCanvas.getContext("2d"), W = pipCanvas.width, H = pipCanvas.height;
+  c.fillStyle = "#0E1022"; c.fillRect(0, 0, W, H);
+  const on = recording && Math.floor(Date.now() / 500) % 2 === 0;
+  c.fillStyle = recording ? (on ? "#FF5C7A" : "#5a2030") : "#555a80";
+  c.beginPath(); c.arc(34, H / 2, 14, 0, Math.PI * 2); c.fill();
+  c.fillStyle = "#ECEBFF"; c.font = "bold 46px system-ui, sans-serif"; c.textBaseline = "middle";
+  c.fillText(recording ? hms(recFrames / RATE) : "Saved", 62, H / 2 - 8);
+  c.fillStyle = "#A3A6C8"; c.font = "18px system-ui, sans-serif";
+  c.fillText(recording ? "GabLab recording · level " + Math.round(dbOf(peakHold)) + " dB" : "GabLab", 64, H / 2 + 30);
+}
+async function openPip() {
+  try {
+    if (!document.pictureInPictureEnabled) throw new Error("not supported on this phone");
+    pipCanvas = pipCanvas || Object.assign(document.createElement("canvas"), { width: 360, height: 120 });
+    drawPip();
+    if (!pipVideo) {
+      pipVideo = document.createElement("video"); pipVideo.muted = true; pipVideo.playsInline = true;
+      pipVideo.srcObject = pipCanvas.captureStream(4);
+      pipVideo.addEventListener("leavepictureinpicture", () => { clearInterval(pipTimer); pipTimer = null; });
+    }
+    await pipVideo.play();
+    clearInterval(pipTimer); pipTimer = setInterval(drawPip, 250);
+    await pipVideo.requestPictureInPicture();
+    log("Mini timer window opened");
+  } catch (e) {
+    clearInterval(pipTimer); pipTimer = null;
+    banner("The floating mini timer isn't available here (" + esc(e.message) + "). The recording notification in your pull-down shade shows the time instead.");
+  }
+}
+function closePip() {
+  try { if (document.pictureInPictureElement) document.exitPictureInPicture(); } catch (e) {}
+  setTimeout(() => { clearInterval(pipTimer); pipTimer = null; }, 1500);
+}
 
 // ---------- wake lock, battery, background ----------
 let wakeLock = null, hiddenAt = 0;
@@ -896,6 +979,9 @@ function applySpeaker() {
 $("speakerBtn").onclick = () => { S.speakerOff = !S.speakerOff; saveSettings(); applySpeaker(); log(S.speakerOff ? "Speaker off (mic still recording normally)" : "Speaker on"); };
 applySpeaker();
 $("hangupBtn").onclick = () => hangUp();
+$("recDock").onclick = () => { if (!$("callView").classList.contains("hidden")) window.scrollTo({ top: 0, behavior: "smooth" }); else { show("checkView", false); show("homeView", false); show("callView", true); window.scrollTo(0, 0); } };
+$("pipBtn").onclick = openPip;
+show("pipBtn", !!document.pictureInPictureEnabled);
 
 $("myName").value = S.name;
 $("myName").oninput = () => { S.name = $("myName").value.trim(); saveSettings(); preview(); };
