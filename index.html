@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GabLab</title>
-<meta name="app-version" content="1.8.2">
+<meta name="app-version" content="1.8.3">
 <meta name="theme-color" content="#0E1022">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -51,7 +51,7 @@
   .pill.on { background:var(--red); color:#fff; } .pill.ok { background:#123F3A; color:#B8FFEA; } .pill.bad { background:#5a1d1d; color:#ffc9c9; }
   .hist { border-top:1px solid var(--line); padding:10px 0; }
   .hist:first-child { border-top:0; }
-  .hist .name { font-weight:600; word-break:break-all; color:var(--text); }
+  .hist .name, .fname { font-weight:600; word-break:break-all; color:#2DD4BF; }
   .hist audio { width:100%; margin-top:6px; }
   .banner { padding:10px 12px; border-radius:10px; margin-bottom:12px; background:#3a2f12; color:#ffe7a3; font-size:14px; }
   .countdown { position:fixed; inset:0; background:rgba(0,0,0,.75); display:flex; align-items:center; justify-content:center; font-size:120px; font-weight:800; z-index:10; }
@@ -285,11 +285,11 @@
     <button id="hangupBtn" class="secondary">Hang up</button>
     <div class="card" style="margin-top:12px"><details><summary class="muted">Details</summary><div id="log"></div></details></div>
   </section>
-  <footer id="ver" class="ver">GabLab v1.8.2</footer>
+  <footer id="ver" class="ver">GabLab v1.8.3</footer>
 </main>
 <div id="countdown" class="countdown hidden"></div>
 <audio id="remoteAudio" autoplay playsinline></audio>
 <script src="peerjs.min.js"></script>
-<script src="app.js?v=1.8.2"></script>
+<script src="app.js?v=1.8.3"></script>
 </body>
 </html>

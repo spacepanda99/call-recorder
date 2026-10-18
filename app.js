@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "1.8.2";
+const VERSION = "1.8.3";
 // If the page and this script come from different releases (a phone cached one of them),
 // reload once to pull matching files.
 (() => {
@@ -194,12 +194,14 @@ async function renderStorage() {
   $("storageInfo").textContent = history.length ? gb(used) + " in this app" : "";
   if (!sp) { $("spaceCard").innerHTML = '<div class="space-note">Free space unknown in this browser. Recording uses 346 MB per hour.</div>'; return; }
   const low = sp.free < 2 * BYTES_PER_HOUR;
-  $("spaceCard").innerHTML = '<div class="space-text"><div><b>' + hm(sp.free) + "</b> of recording space left</div>" +
+  $("spaceCard").innerHTML = '<div class="space-text"><div><b style="color:' + timeColor(sp.free) + '">' + hm(sp.free) + "</b> of recording space left</div>" +
     '<div class="muted">' + gb(sp.free) + " available to GabLab</div></div>" +
     '<div class="space-note">' + (history.length ? gb(used) + " in " + history.length + " recording" + (history.length === 1 ? "" : "s") + " · " : "") +
     "346 MB per hour" + (low ? ' · <span style="color:var(--warn)">Low on space. Free some up before a long call.</span>' : "") +
     "<br>After uploading, you can delete your files here to free up space.</div>";
 }
+// Recording time left: green over 90 min, yellow 60-90 min, red under an hour.
+const timeColor = (bytes) => (bytes > 1.5 * BYTES_PER_HOUR ? "#4ADE80" : bytes >= BYTES_PER_HOUR ? "#FFD166" : "#FF5C7A");
 let spaceLeft = null;
 async function spaceTick() {
   if (!recording) { $("spaceInfo").textContent = ""; return; }
@@ -207,8 +209,7 @@ async function spaceTick() {
   if (!sp) return;
   spaceLeft = sp.free;
   const el = $("spaceInfo");
-  el.textContent = "Space left: about " + hm(sp.free) + " (" + gb(sp.free) + ")";
-  el.style.color = sp.free < BYTES_PER_HOUR / 6 ? "var(--red)" : "";
+  el.innerHTML = 'Space left: about <b style="color:' + timeColor(sp.free) + '">' + hm(sp.free) + "</b> (" + gb(sp.free) + ")";
   if (sp.free < 25e6) {                                 // under ~4 min: stop cleanly instead of failing mid-write
     banner("Recording stopped because the phone is almost out of space. The file was saved.");
     log("Stopping: storage almost full");
@@ -516,7 +517,7 @@ async function stopRecording(tellFriend) {
   saveHistory(); renderHistory();
   window.__lastEntry = e;
   $("recState").textContent = "Saved";
-  $("savedInfo").innerHTML = "<b>Saved:</b> " + esc(e.exportName) + '<div class="muted">' + hms(e.secs) + " · " + mb(e.bytes || 0) + " · loudest " + e.peakDb.toFixed(1) + " dB" +
+  $("savedInfo").innerHTML = "<b>Saved:</b> <span class=\"fname\">" + esc(e.exportName) + "</span>" + '<div class="muted">' + hms(e.secs) + " · " + mb(e.bytes || 0) + " · loudest " + e.peakDb.toFixed(1) + " dB" +
     (e.gainDb > 0.1 ? " (raised +" + e.gainDb.toFixed(1) + " dB)" : "") + "</div>" +
     '<div class="btnrow"><button class="small secondary" id="svDl">Download</button>' + (navigator.canShare ? '<button class="small secondary" id="svSh">Share</button>' : "") +
     (canPickFolder ? '<button class="small secondary" id="svFo">To folder</button>' : "") + "</div>";
