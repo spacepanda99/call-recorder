@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GabLab</title>
-<meta name="app-version" content="1.9.0">
+<meta name="app-version" content="1.9.1">
 <meta name="theme-color" content="#0E1022">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -132,6 +132,9 @@
   .gainrow label { margin:0; color:var(--muted); font-size:14px; }
   .gainrow input[type=range] { flex:1; min-width:120px; accent-color:var(--accent); padding:0; border:0; background:transparent; }
   .gainrow .gain-val { min-width:48px; text-align:right; color:var(--text); font-variant-numeric:tabular-nums; }
+  .diag { font:12px/1.5 ui-monospace, Menlo, Consolas, monospace; color:var(--muted); background:var(--field); border-radius:8px; padding:6px 10px; margin-top:10px; white-space:pre-wrap; }
+  .diag b { color:var(--text); font-weight:600; }
+  .diag .bad { color:var(--red); font-weight:700; }
 </style>
 </head>
 <body>
@@ -253,6 +256,7 @@
       <div class="meter" style="margin-top:12px"><div class="zone"></div><div class="bar" id="checkBar"></div></div>
       <div class="scale"><span style="left:0%;transform:none">−60</span><span style="left:50%">−30</span><span style="left:80%">−12</span><span style="left:90%">−6</span><span style="left:100%;transform:translateX(-100%)">0</span></div>
       <div class="gainrow"><label for="gainSlider2">Mic level</label><input type="range" class="gain-slider" id="gainSlider2" min="-24" max="12" step="1" value="0"><span class="gain-val">0 dB</span></div>
+      <div class="diag" id="diag2"></div>
       <div id="checkResult" class="hidden"></div>
       <button id="checkStartBtn">Start (takes 10 s)</button>
       <button id="checkDoneBtn" class="secondary">Back</button>
@@ -281,6 +285,7 @@
       <div class="timer" id="timer">00:00:00</div>
       <div class="muted center" id="recState">Not recording</div>
       <div class="muted center" id="spaceInfo"></div>
+      <div class="diag" id="diag"></div>
       <div class="coach" id="coach">Talk normally to get distance advice. Your loud words should reach the green zone.</div>
       <button id="recBtn" disabled>Start recording</button>
       <button id="stopBtn" class="danger hidden">Stop &amp; save</button>
@@ -296,14 +301,14 @@
 
     <div class="card hidden" id="savedCard"><div id="savedInfo"></div></div>
 
-    <button id="hangupBtn" class="secondary">Hang up</button>
+    <button id="hangupBtn" class="danger">Hang up</button>
     <div class="card" style="margin-top:12px"><details><summary class="muted">Details</summary><div id="log"></div></details></div>
   </section>
-  <footer id="ver" class="ver">GabLab v1.9.0</footer>
+  <footer id="ver" class="ver">GabLab v1.9.1</footer>
 </main>
 <div id="countdown" class="countdown hidden"></div>
 <audio id="remoteAudio" autoplay playsinline></audio>
 <script src="peerjs.min.js"></script>
-<script src="app.js?v=1.9.0"></script>
+<script src="app.js?v=1.9.1"></script>
 </body>
 </html>

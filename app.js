@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "1.9.0";
+const VERSION = "1.9.1";
 // If the page and this script come from different releases (a phone cached one of them),
 // reload once to pull matching files.
 (() => {
@@ -289,6 +289,7 @@ class Tap extends AudioWorkletProcessor {
 registerProcessor("tap", Tap);`;
 let tap = null, direct = false, finalStat = null;
 let rawClipUntil = 0, rawClipSamples = 0;
+const rawClipLog = [];                    // [time, samples at full scale] from the worklet, before the slider
 const gainOf = (db) => Math.pow(10, db / 20);
 function sendGain() { if (tap) tap.port.postMessage({ gain: gainOf(S.micGainDb) }); }
 function setGain(db) {
@@ -324,7 +325,7 @@ async function ensureMic() {
   tap.port.onmessage = (e) => {
     const d = e.data;
     if (d instanceof Float32Array) { onAudio(d); return; }
-    if (d.rawClip) { rawClipUntil = performance.now() + 3000; rawClipSamples += d.rawClip; return; }
+    if (d.rawClip) { rawClipUntil = performance.now() + 3000; rawClipSamples += d.rawClip; rawClipLog.push([performance.now(), d.rawClip]); return; }
     if (!d.stat) return;
     if (direct) { recFrames = d.frames; recPeak = d.peak; }
     if (d.final && finalStat) { finalStat(d); finalStat = null; }
@@ -356,7 +357,7 @@ async function listMics() {
 }
 
 // ---------- audio analysis ----------
-let peakHold = 0, clipUntil = 0, winSum = 0, winPeak = 0, winN = 0;
+let winDc = 0, peakHold = 0, clipUntil = 0, winSum = 0, winPeak = 0, winN = 0;
 const wins = [];                           // last 15 s of 50 ms windows {p, r}
 let checkSink = null;                      // mic check collects windows here
 let recording = false, recEntry = null, recFrames = 0, recPeak = 0;
@@ -367,12 +368,12 @@ function onAudio(f32) {
   for (let i = 0; i < f32.length; i++) {
     const x = f32[i], v = x < 0 ? -x : x;
     if (v > peak) peak = v;
-    winSum += x * x; if (v > winPeak) winPeak = v;
+    winSum += x * x; winDc += x; if (v > winPeak) winPeak = v;
     if (++winN === WIN) {
-      const w = { p: winPeak, r: Math.sqrt(winSum / WIN) };
+      const w = { p: winPeak, r: Math.sqrt(winSum / WIN), dc: winDc / WIN };
       wins.push(w); if (wins.length > 300) wins.shift();
       if (checkSink) checkSink.push(w);
-      winSum = 0; winPeak = 0; winN = 0;
+      winSum = 0; winDc = 0; winPeak = 0; winN = 0;
     }
   }
   if (peak >= 0.99) clipUntil = performance.now() + 1500;
@@ -414,6 +415,9 @@ function analyse(list) {
 function coachAdvice() {
   const a = analyse(wins);
   if (!a) return { cls: "", text: "Listening…" };
+  if (performance.now() < rawClipUntil && inCall && role !== "solo" && everConnected && !S.speakerOff) {
+    return { cls: "bad", text: "Overloading, most likely from feedback: your mic is hearing your friend's voice from your speaker (and theirs is hearing yours). Tap Speaker off on both phones, or wear earphones." };
+  }
   if (performance.now() < rawClipUntil) {
     const far = cmText(Math.min(45, Math.max(S.distance * 2, 25)));
     return { cls: "bad", text: "The phone's mic itself is overloading, before the Mic level slider, so turning the slider down won't fix it. Move the phone back to about " + far + " or speak softer" +
@@ -799,6 +803,24 @@ setInterval(() => {
   sendHeartbeat();
 }, 1000);
 setInterval(updateQuality, 3000);
+// Live mic readout, so a "it's always clipping" report can be checked against real numbers.
+function micDiag() {
+  if (!micStream) return "";
+  const now = performance.now();
+  while (rawClipLog.length && now - rawClipLog[0][0] > 10000) rawClipLog.shift();
+  const fs10 = rawClipLog.reduce((n, x) => n + x[1], 0);
+  const g = gainOf(S.micGainDb), last = wins.slice(-200);
+  const rawPeak = last.reduce((m, w) => Math.max(m, w.p), 0) / g;
+  const dc = last.length ? last.reduce((n, w) => n + w.dc, 0) / last.length / g : 0;
+  const st = micStream.getAudioTracks()[0] ? micStream.getAudioTracks()[0].getSettings() : {};
+  const onoff = (v) => (v === undefined ? "?" : v ? "on" : "off");
+  return "Mic input (before slider), last 10 s:\n" +
+    "  loudest <b>" + dbOf(Math.min(1, rawPeak)).toFixed(1) + " dB</b> · full-scale samples " + (fs10 ? '<span class="bad">' + fs10 + "</span>" : "<b>0</b>") +
+    " · DC " + (dc * 100).toFixed(2) + "%\n" +
+    "  phone processing: echo " + onoff(st.echoCancellation) + ", noise " + onoff(st.noiseSuppression) + ", auto-gain " + onoff(st.autoGainControl) +
+    " · " + (st.sampleRate || "?") + " Hz" + (inCall && role !== "solo" ? " · speaker " + (S.speakerOff ? "off" : "on") : "");
+}
+setInterval(() => { const t = micDiag(); $("diag").innerHTML = t; $("diag2").innerHTML = t; show("diag", !!t); show("diag2", !!t); }, 1000);
 
 // ---------- wake lock, battery, background ----------
 let wakeLock = null, hiddenAt = 0;
